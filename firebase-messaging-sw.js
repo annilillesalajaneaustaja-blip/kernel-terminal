@@ -1,29 +1,66 @@
-importScripts('https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js');
-importScripts('https://www.gstatic.com/firebasejs/10.12.2/firebase-messaging-compat.js');
+// Kernel Terminal — Service Worker
+// Kuulab Firebase Realtime DB-d otse, ei vaja FCM-i
+// Töötab Firefox, Chrome, Safari, Edge
 
-firebase.initializeApp({
-  apiKey: "AIzaSyCW1sTAjhIEMGddqplM7TQ-Wc0eLYWhRSQ",
-  authDomain: "kernel-chat-8b669.firebaseapp.com",
-  databaseURL: "https://kernel-chat-8b669-default-rtdb.europe-west1.firebasedatabase.app",
-  projectId: "kernel-chat-8b669",
-  storageBucket: "kernel-chat-8b669.firebasestorage.app",
-  messagingSenderId: "70231400069",
-  appId: "1:70231400069:web:8e62e67bd7c2efb28553ec"
+const FIREBASE_URL = 'https://kernel-chat-8b669-default-rtdb.europe-west1.firebasedatabase.app';
+
+let lastMsgKey = null;
+let currentUser = null;
+let pollInterval = null;
+
+self.addEventListener('message', (e) => {
+  if (e.data && e.data.type === 'INIT') {
+    currentUser = e.data.user;
+    lastMsgKey = e.data.lastKey || null;
+    startPolling();
+  }
+  if (e.data && e.data.type === 'STOP') {
+    stopPolling();
+  }
 });
 
-const messaging = firebase.messaging();
+function startPolling() {
+  if (pollInterval) return;
+  pollInterval = setInterval(checkNewMessages, 5000);
+}
 
-// Taustateavitused (kui leht on suletud või taustal)
-messaging.onBackgroundMessage((payload) => {
-  const { title, body } = payload.notification || {};
-  self.registration.showNotification(title || 'KERNEL_TERMINAL', {
-    body: body || '',
-    icon: '/icon.png',
-    badge: '/icon.png',
-    vibrate: [200, 100, 200],
-    data: payload.data
-  });
-});
+function stopPolling() {
+  if (pollInterval) {
+    clearInterval(pollInterval);
+    pollInterval = null;
+  }
+}
+
+async function checkNewMessages() {
+  if (!currentUser) return;
+  try {
+    const res = await fetch(
+      `${FIREBASE_URL}/messages.json?orderBy="timestamp"&limitToLast=1`
+    );
+    if (!res.ok) return;
+    const data = await res.json();
+    if (!data) return;
+
+    const entries = Object.entries(data);
+    if (!entries.length) return;
+    const [key, msg] = entries[0];
+
+    // Ignoreeri kui sama sõnum, enda sõnum või kustutatud
+    if (key === lastMsgKey) return;
+    if (msg.user === currentUser) { lastMsgKey = key; return; }
+    if (msg.deleted) { lastMsgKey = key; return; }
+
+    lastMsgKey = key;
+
+    self.registration.showNotification('KERNEL_TERMINAL — uus sõnum', {
+      body: msg.user + ': ' + msg.text,
+      vibrate: [200, 100, 200],
+      tag: key, // duplikaatide vältimiseks
+    });
+  } catch(e) {
+    // Vaikne ebaõnnestumine — ei taha SW-d krahhida
+  }
+}
 
 self.addEventListener('notificationclick', (e) => {
   e.notification.close();
