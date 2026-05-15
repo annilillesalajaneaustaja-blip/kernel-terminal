@@ -23,6 +23,7 @@
     font-family: var(--font);
     font-size: 14px;
     height: 100vh;
+    height: 100dvh;
     display: flex;
     flex-direction: column;
     overflow: hidden;
@@ -451,7 +452,7 @@ function initFirebase() {
 }
 
 function login(password) {
-const username = USERS[password.trim()];
+  const username = USERS[password.trim()];
   if (!username) {
     const errEl = document.getElementById('login-error');
     errEl.textContent = '✗ ACCESS DENIED: Invalid credentials';
