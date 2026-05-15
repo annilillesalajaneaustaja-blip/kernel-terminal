@@ -451,7 +451,7 @@ function initFirebase() {
 }
 
 function login(password) {
-  const username = USERS[password.trim().toUpperCase()];
+const username = USERS[password.trim()];
   if (!username) {
     const errEl = document.getElementById('login-error');
     errEl.textContent = '✗ ACCESS DENIED: Invalid credentials';
