@@ -428,8 +428,6 @@ Build → Realtime Database → Create Database → Start in test mode
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getDatabase, ref, push, onValue, serverTimestamp, update, query, limitToLast, remove, set }
   from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
-import { getMessaging, getToken, onMessage }
-  from "https://www.gstatic.com/firebasejs/10.12.2/firebase-messaging.js";
 
 // ════════════════════════════════════════════════════
 //   FIREBASE KONFIGURATSIOON
@@ -535,7 +533,7 @@ function login(password) {
   // Näita banner — kui luba juba antud, aktiveeri FCM kohe
   updateNotifBanner();
   if (isNotifGranted()) {
-    initFCM();
+    initSW();
   }
 }
 
@@ -734,12 +732,10 @@ document.getElementById('msg-input').addEventListener('keydown', (e) => {
 });
 
 // ════════════════════════════════════════════════════
-//   PUSH TEAVITUSED (FCM)
+//   PUSH TEAVITUSED (Service Worker + DB polling)
 // ════════════════════════════════════════════════════
 
-const VAPID_KEY = 'BHjCejG7QdVqLZsH3LdXXIGDzjR0UruNaRu-sm3pt-nLiQgxb3KYxokcIoTXQAoLoedeLkCErSmPag5-xHMdXQg';
-let messaging = null;
-let fcmToken = null;
+let swReg = null;
 
 function checkNotificationSupport() {
   return 'Notification' in window && 'serviceWorker' in navigator;
@@ -756,7 +752,7 @@ function updateNotifBanner() {
     banner.classList.remove('visible');
     return;
   }
-  if (Notification.permission === 'granted' && fcmToken) {
+  if (Notification.permission === 'granted') {
     banner.classList.remove('visible');
   } else {
     banner.classList.add('visible');
@@ -772,36 +768,40 @@ function updateNotifBanner() {
   }
 }
 
-async function initFCM() {
+async function initSW() {
   try {
-    const swReg = await navigator.serviceWorker.register('/firebase-messaging-sw.js');
+    swReg = await navigator.serviceWorker.register('/firebase-messaging-sw.js');
     await navigator.serviceWorker.ready;
-    messaging = getMessaging();
 
-    fcmToken = await getToken(messaging, {
-      vapidKey: VAPID_KEY,
-      serviceWorkerRegistration: swReg
+    // Saada SW-le kasutajainfo ja viimane sõnumi võti
+    const lastKey = getLastMessageKey();
+    swReg.active && swReg.active.postMessage({
+      type: 'INIT',
+      user: currentUser,
+      lastKey: lastKey
     });
 
-    if (fcmToken) {
-      // Salvesta token DB-sse kasutaja nime alla
-      await set(ref(db, 'fcm_tokens/' + currentUser), {
-        token: fcmToken,
-        updated: Date.now()
+    // Kuula ka SW 'controlling' muutust (esimesel registreerimisel)
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      navigator.serviceWorker.controller && navigator.serviceWorker.controller.postMessage({
+        type: 'INIT',
+        user: currentUser,
+        lastKey: getLastMessageKey()
       });
-      sysMsg('[ ✓ Push teavitused aktiivsed ]');
-      updateNotifBanner();
+    });
 
-      // Kuula ka foreground sõnumeid (kui leht on lahti)
-      onMessage(messaging, (payload) => {
-        // Leht on lahti — DB kuulaja kuvab sõnumi niikuinii, ei tee midagi
-        console.log('FCM foreground sõnum:', payload);
-      });
-    }
+    sysMsg('[ ✓ Push teavitused aktiivsed — teavitused tulevad ka kui leht on taustal ]');
+    updateNotifBanner();
   } catch(e) {
-    console.warn('FCM init ebaõnnestus:', e.message);
-    sysMsg('[ ✗ Push teavituste aktiveerimine ebaõnnestus: ' + e.message + ' ]');
+    sysMsg('[ ✗ Teavituste SW viga: ' + e.message + ' ]');
   }
+}
+
+function getLastMessageKey() {
+  const msgs = document.querySelectorAll('.msg-line');
+  if (!msgs.length) return null;
+  const last = msgs[msgs.length - 1];
+  return last.id ? last.id.replace('msg-', '') : null;
 }
 
 async function requestNotifPermission() {
@@ -809,7 +809,7 @@ async function requestNotifPermission() {
   try {
     const result = await Notification.requestPermission();
     if (result === 'granted') {
-      await initFCM();
+      await initSW();
     } else {
       updateNotifBanner();
       sysMsg('[ ✗ Teavitused keelatud — luba brauseri aadressiriba tabaluku ikoonist ]');
@@ -819,18 +819,17 @@ async function requestNotifPermission() {
   }
 }
 
-// Saada teavitus kõigile teistele seadmetele läbi DB
+// Teavitus foreground sõnumitest (leht on lahti) — DB kuulaja teeb seda juba
 async function sendPushNotification(title, body) {
-  // Loe kõik tokenid DB-st ja saada neile teavitus läbi FCM REST API
-  // Kuna meil pole serverit, kasutame DB-põhist lähenemist:
-  // iga klient kuulab ise DB-d (onValue) ja kuvab teavituse — see juba toimib.
-  // FCM taustasõnumid tulevad SW kaudu automaatselt kui leht on suletud.
+  // SW tegeleb taustateavitustega — foreground näitab DB onValue juba
 }
 
 document.getElementById('notif-enable-btn').addEventListener('click', requestNotifPermission);
 
-// Kui luba oli juba antud, aktiveeri FCM kohe pärast login'i
-// (kutsutakse login() funktsioonist — vt allpool)
+// Kui luba juba antud, aktiveeri SW kohe pärast login
+if (isNotifGranted()) {
+  initSW();
+}
 
 // ════════════════════════════════════════════════════
 
