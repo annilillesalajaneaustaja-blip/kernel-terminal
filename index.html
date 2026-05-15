@@ -772,36 +772,11 @@ async function initSW() {
   try {
     swReg = await navigator.serviceWorker.register('/firebase-messaging-sw.js');
     await navigator.serviceWorker.ready;
-
-    // Saada SW-le kasutajainfo ja viimane sõnumi võti
-    const lastKey = getLastMessageKey();
-    swReg.active && swReg.active.postMessage({
-      type: 'INIT',
-      user: currentUser,
-      lastKey: lastKey
-    });
-
-    // Kuula ka SW 'controlling' muutust (esimesel registreerimisel)
-    navigator.serviceWorker.addEventListener('controllerchange', () => {
-      navigator.serviceWorker.controller && navigator.serviceWorker.controller.postMessage({
-        type: 'INIT',
-        user: currentUser,
-        lastKey: getLastMessageKey()
-      });
-    });
-
     sysMsg('[ ✓ Push teavitused aktiivsed — teavitused tulevad ka kui leht on taustal ]');
     updateNotifBanner();
   } catch(e) {
     sysMsg('[ ✗ Teavituste SW viga: ' + e.message + ' ]');
   }
-}
-
-function getLastMessageKey() {
-  const msgs = document.querySelectorAll('.msg-line');
-  if (!msgs.length) return null;
-  const last = msgs[msgs.length - 1];
-  return last.id ? last.id.replace('msg-', '') : null;
 }
 
 async function requestNotifPermission() {
@@ -819,9 +794,22 @@ async function requestNotifPermission() {
   }
 }
 
-// Teavitus foreground sõnumitest (leht on lahti) — DB kuulaja teeb seda juba
 async function sendPushNotification(title, body) {
-  // SW tegeleb taustateavitustega — foreground näitab DB onValue juba
+  if (!isNotifGranted() || !swReg) return;
+  try {
+    // Saada SW-le — SW näitab teavituse (töötab ka kui leht on taustal)
+    const sw = swReg.active || swReg.waiting || swReg.installing;
+    if (sw) {
+      sw.postMessage({
+        type: 'NOTIFY',
+        title: title,
+        body: body,
+        tag: Date.now().toString()
+      });
+    }
+  } catch(e) {
+    console.warn('sendPushNotification viga:', e);
+  }
 }
 
 document.getElementById('notif-enable-btn').addEventListener('click', requestNotifPermission);
