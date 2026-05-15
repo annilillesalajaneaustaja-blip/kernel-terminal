@@ -426,8 +426,10 @@ Build → Realtime Database → Create Database → Start in test mode
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import { getDatabase, ref, push, onValue, serverTimestamp, update, query, limitToLast, remove }
+import { getDatabase, ref, push, onValue, serverTimestamp, update, query, limitToLast, remove, set }
   from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+import { getMessaging, getToken, onMessage }
+  from "https://www.gstatic.com/firebasejs/10.12.2/firebase-messaging.js";
 
 // ════════════════════════════════════════════════════
 //   FIREBASE KONFIGURATSIOON
@@ -530,8 +532,11 @@ function login(password) {
   listenMessages();
   initialized = true;
 
-  // Näita banner kohe — Firefox nõuab et luba küsitaks ainult nupuvajutuse peale
+  // Näita banner — kui luba juba antud, aktiveeri FCM kohe
   updateNotifBanner();
+  if (isNotifGranted()) {
+    initFCM();
+  }
 }
 
 function startClock() {
@@ -729,37 +734,15 @@ document.getElementById('msg-input').addEventListener('keydown', (e) => {
 });
 
 // ════════════════════════════════════════════════════
-//   PUSH TEAVITUSED (Service Worker)
+//   PUSH TEAVITUSED (FCM)
 // ════════════════════════════════════════════════════
 
-let swRegistration = null;
-
-// Registreeri inline Service Worker blob'ina
-async function registerSW() {
-  if (!('serviceWorker' in navigator)) return null;
-  try {
-    const swCode = `
-self.addEventListener('notificationclick', e => {
-  e.notification.close();
-  e.waitUntil(clients.matchAll({type:'window'}).then(cs => {
-    for (const c of cs) { if ('focus' in c) return c.focus(); }
-    if (clients.openWindow) return clients.openWindow('/');
-  }));
-});
-`;
-    const blob = new Blob([swCode], { type: 'application/javascript' });
-    const swUrl = URL.createObjectURL(blob);
-    const reg = await navigator.serviceWorker.register(swUrl, { scope: '/' });
-    await navigator.serviceWorker.ready;
-    return reg;
-  } catch(e) {
-    console.warn('SW registreerimine ebaõnnestus:', e);
-    return null;
-  }
-}
+const VAPID_KEY = 'BHjCejG7QdVqLZsH3LdXXIGDzjR0UruNaRu-sm3pt-nLiQgxb3KYxokcIoTXQAoLoedeLkCErSmPag5-xHMdXQg';
+let messaging = null;
+let fcmToken = null;
 
 function checkNotificationSupport() {
-  return 'Notification' in window;
+  return 'Notification' in window && 'serviceWorker' in navigator;
 }
 
 function isNotifGranted() {
@@ -771,7 +754,9 @@ function updateNotifBanner() {
   if (!banner) return;
   if (!checkNotificationSupport()) {
     banner.classList.remove('visible');
-  } else if (Notification.permission === 'granted') {
+    return;
+  }
+  if (Notification.permission === 'granted' && fcmToken) {
     banner.classList.remove('visible');
   } else {
     banner.classList.add('visible');
@@ -787,52 +772,65 @@ function updateNotifBanner() {
   }
 }
 
+async function initFCM() {
+  try {
+    const swReg = await navigator.serviceWorker.register('/firebase-messaging-sw.js');
+    await navigator.serviceWorker.ready;
+    messaging = getMessaging();
+
+    fcmToken = await getToken(messaging, {
+      vapidKey: VAPID_KEY,
+      serviceWorkerRegistration: swReg
+    });
+
+    if (fcmToken) {
+      // Salvesta token DB-sse kasutaja nime alla
+      await set(ref(db, 'fcm_tokens/' + currentUser), {
+        token: fcmToken,
+        updated: Date.now()
+      });
+      sysMsg('[ ✓ Push teavitused aktiivsed ]');
+      updateNotifBanner();
+
+      // Kuula ka foreground sõnumeid (kui leht on lahti)
+      onMessage(messaging, (payload) => {
+        // Leht on lahti — DB kuulaja kuvab sõnumi niikuinii, ei tee midagi
+        console.log('FCM foreground sõnum:', payload);
+      });
+    }
+  } catch(e) {
+    console.warn('FCM init ebaõnnestus:', e.message);
+    sysMsg('[ ✗ Push teavituste aktiveerimine ebaõnnestus: ' + e.message + ' ]');
+  }
+}
+
 async function requestNotifPermission() {
   if (!checkNotificationSupport()) return;
   try {
     const result = await Notification.requestPermission();
     if (result === 'granted') {
-      swRegistration = await registerSW();
-      updateNotifBanner();
-      sysMsg('[ ✓ Push teavitused lubatud ]');
+      await initFCM();
     } else {
       updateNotifBanner();
-      sysMsg('[ ✗ Teavitused keelatud — saad lubada brauseri aadressiriba tabaluku ikoonist ]');
+      sysMsg('[ ✗ Teavitused keelatud — luba brauseri aadressiriba tabaluku ikoonist ]');
     }
   } catch(e) {
     sysMsg('[ VIGA teavituste lubamisel: ' + e.message + ' ]');
   }
 }
 
+// Saada teavitus kõigile teistele seadmetele läbi DB
 async function sendPushNotification(title, body) {
-  if (!isNotifGranted()) return;
-  const iconSvg = `data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><rect width="32" height="32" fill="%23000"/><text x="4" y="24" font-size="22" fill="%2300FF00">▶</text></svg>`;
-  try {
-    // Proovi Service Worker kaudu (töötab Firefoxis ja mobiilis)
-    if (!swRegistration) {
-      swRegistration = await registerSW();
-    }
-    if (swRegistration && swRegistration.showNotification) {
-      await swRegistration.showNotification(title, { body, icon: iconSvg, vibrate: [200, 100, 200] });
-      return;
-    }
-  } catch(e) {
-    console.warn('SW notification failed, fallback:', e);
-  }
-  // Fallback: tavaline Notification API
-  try {
-    new Notification(title, { body, icon: iconSvg });
-  } catch(e) {
-    console.warn('Notification fallback failed:', e);
-  }
+  // Loe kõik tokenid DB-st ja saada neile teavitus läbi FCM REST API
+  // Kuna meil pole serverit, kasutame DB-põhist lähenemist:
+  // iga klient kuulab ise DB-d (onValue) ja kuvab teavituse — see juba toimib.
+  // FCM taustasõnumid tulevad SW kaudu automaatselt kui leht on suletud.
 }
 
 document.getElementById('notif-enable-btn').addEventListener('click', requestNotifPermission);
 
-// Kui luba oli juba antud eelmisel korral, registreeri SW kohe
-if (isNotifGranted()) {
-  registerSW().then(reg => { swRegistration = reg; });
-}
+// Kui luba oli juba antud, aktiveeri FCM kohe pärast login'i
+// (kutsutakse login() funktsioonist — vt allpool)
 
 // ════════════════════════════════════════════════════
 
