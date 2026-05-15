@@ -770,7 +770,7 @@ function updateNotifBanner() {
 
 async function initSW() {
   try {
-    swReg = await navigator.serviceWorker.register('/firebase-messaging-sw.js');
+    swReg = await navigator.serviceWorker.register('/kernel-terminal/firebase-messaging-sw.js');
     await navigator.serviceWorker.ready;
     sysMsg('[ ✓ Push teavitused aktiivsed — teavitused tulevad ka kui leht on taustal ]');
     updateNotifBanner();
