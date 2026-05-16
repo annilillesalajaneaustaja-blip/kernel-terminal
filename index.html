@@ -763,7 +763,7 @@ async function initFCM() {
   if (swReady) return;
   swReady = true;
   try {
-    swReg = await navigator.serviceWorker.register('/kernel-terminal/firebase-messaging-sw.js');
+swReg = await navigator.serviceWorker.register('/firebase-messaging-sw.js');
     await navigator.serviceWorker.ready;
 
     const messaging = getMessaging();
