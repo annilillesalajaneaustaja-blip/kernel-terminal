@@ -5,6 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <link rel="manifest" href="./manifest.json">
 <meta name="theme-color" content="#00FF00">
+<link rel="icon" type="image/png" href="./ikoon.png">
+<link rel="apple-touch-icon" href="./ikoon.png">
 <title>KERNEL_TERMINAL v4.2.1</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -560,6 +562,45 @@ function login(password) {
   updateNotifBanner();
   if (isNotifGranted()) {
     initFCM();
+    checkMissedMessages();
+  }
+}
+
+async function checkMissedMessages() {
+  // Vaatame kas saabusid sõnumid sel ajal kui brauser kinni oli
+  const lastSeenKey = 'lastSeen:' + currentUser;
+  const lastSeen = parseInt(localStorage.getItem(lastSeenKey) || '0');
+  const now = Date.now();
+  localStorage.setItem(lastSeenKey, now);
+
+  if (!lastSeen) return; // esimene kord, pole millega võrrelda
+
+  const sinceLastSeen = now - lastSeen;
+  if (sinceLastSeen < 30000) return; // alla 30 sekundi — brauser polnud päriselt kinni
+
+  try {
+    const { get, query: fbQuery, orderByChild, startAfter } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js");
+    const q = fbQuery(msgsRef, orderByChild('timestamp'), startAfter(lastSeen));
+    const snapshot = await get(q);
+    if (!snapshot.exists()) return;
+
+    const entries = Object.values(snapshot.val());
+    const missed = entries.filter(m => m.user !== currentUser && !m.deleted);
+    if (!missed.length) return;
+
+    // Näita üks koondteavitus
+    const last = missed[missed.length - 1];
+    const count = missed.length;
+    const title = 'KERNEL_TERMINAL';
+    const body = count === 1
+      ? last.user + ': ' + last.text
+      : count + ' uut sõnumit, viimane: ' + last.user + ': ' + last.text;
+
+    if ('Notification' in window && Notification.permission === 'granted') {
+      new Notification(title, { body, tag: 'kernel-missed', vibrate: [200, 100, 200] });
+    }
+  } catch(e) {
+    console.log('checkMissedMessages:', e.message);
   }
 }
 
