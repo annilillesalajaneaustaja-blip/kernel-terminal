@@ -195,6 +195,36 @@
   .status-seen { color: #00AAFF; }
   .status-delivered { color: var(--green-dim); }
 
+  .day-separator {
+    text-align: center;
+    color: var(--green-dim);
+    font-size: 11px;
+    margin: 10px 0 4px;
+    letter-spacing: 2px;
+    border-top: 1px solid #002200;
+    padding-top: 6px;
+  }
+
+  .act-btn-save {
+    background: transparent;
+    border: none;
+    color: #00AA00;
+    font-family: var(--font);
+    font-size: 11px;
+    cursor: pointer;
+    padding: 0 3px;
+    opacity: 0.6;
+  }
+  .act-btn-save:hover { opacity: 1; color: #00FF00; }
+  .act-btn-save.saved { color: #00FFFF; opacity: 1; }
+
+  .msg-expiry {
+    font-size: 10px;
+    color: #444;
+    margin-left: 4px;
+  }
+  .msg-expiry.soon { color: #884400; }
+
   .sys-msg {
     color: var(--green-dim);
     font-size: 12px;
@@ -623,6 +653,32 @@ function formatTime(ts) {
   return d.toLocaleTimeString('et-EE', {hour: '2-digit', minute: '2-digit', hour12: false});
 }
 
+function formatDate(ts) {
+  if (!ts) return '';
+  const d = new Date(ts);
+  const today = new Date();
+  const yesterday = new Date(today); yesterday.setDate(today.getDate() - 1);
+  if (d.toDateString() === today.toDateString()) return '── TÄNA ──';
+  if (d.toDateString() === yesterday.toDateString()) return '── EILE ──';
+  return '── ' + d.toLocaleDateString('et-EE', {day: 'numeric', month: 'long', year: 'numeric'}).toUpperCase() + ' ──';
+}
+
+let lastRenderedDay = null;
+
+function maybeInsertDaySeparator(area, ts) {
+  if (!ts) return;
+  const d = new Date(ts);
+  const dayKey = d.toDateString();
+  if (dayKey === lastRenderedDay) return;
+  lastRenderedDay = dayKey;
+  const sep = document.createElement('div');
+  sep.className = 'day-separator';
+  sep.textContent = formatDate(ts);
+  area.appendChild(sep);
+}
+
+const EXPIRE_MS = 24 * 60 * 60 * 1000; // 24 tundi
+
 function escapeHtml(text) {
   return text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
@@ -634,6 +690,15 @@ function renderMessage(msgData, msgId, isNew) {
   const userClass = isAdmin ? 'msg-user-admin' : 'msg-user-annilill';
   const ts = formatTime(msgData.timestamp);
 
+  // Automaatne 24h kustutus (salvestatud sõnumeid ei kustutata)
+  if (!msgData.deleted && !msgData.saved && msgData.timestamp) {
+    const age = Date.now() - msgData.timestamp;
+    if (age > EXPIRE_MS) {
+      update(ref(db, 'messages/' + msgId), { deleted: true, text: '' });
+      return;
+    }
+  }
+
   let statusHtml = '';
   if (currentUser === 'Admin' && isAdmin) {
     const statusClass = msgData.seen ? 'status-seen' : 'status-delivered';
@@ -641,12 +706,34 @@ function renderMessage(msgData, msgId, isNew) {
     statusHtml = `<span class="msg-status ${statusClass}">[${statusText}]</span>`;
   }
 
+  // Aegumise märgis — näita kui alla 2h jäänud
+  let expiryHtml = '';
+  if (!msgData.deleted && !msgData.saved && msgData.timestamp) {
+    const remaining = EXPIRE_MS - (Date.now() - msgData.timestamp);
+    const hours = Math.floor(remaining / 3600000);
+    const mins  = Math.floor((remaining % 3600000) / 60000);
+    if (remaining < 2 * 3600000) {
+      expiryHtml = `<span class="msg-expiry soon">[aegub ${hours}h ${mins}m]</span>`;
+    }
+  }
+  if (msgData.saved) {
+    expiryHtml = `<span class="msg-expiry" style="color:#00AAFF;">[salvestatud]</span>`;
+  }
+
+  // Save nupp — mõlemale kasutajale
+  const saveClass = msgData.saved ? 'act-btn-save saved' : 'act-btn-save';
+  const saveLabel = msgData.saved ? '[♦]' : '[♢]';
+
   let actionsHtml = '';
-  if (currentUser === 'Admin') {
+  if (!msgData.deleted) {
     actionsHtml = `<span class="msg-actions">` +
-      `<button class="act-btn" onclick="editMsg('${msgId}', this)" title="Muuda">[~]</button>` +
-      `<button class="act-btn act-del" onclick="deleteMsg('${msgId}')" title="Kustuta">[x]</button>` +
-      `</span>`;
+      `<button class="${saveClass}" onclick="saveMsg('${msgId}', ${!!msgData.saved})" title="${msgData.saved ? 'Salvestatud' : 'Salvesta'}">${saveLabel}</button>`;
+    if (currentUser === 'Admin') {
+      actionsHtml +=
+        `<button class="act-btn" onclick="editMsg('${msgId}', this)" title="Muuda">[~]</button>` +
+        `<button class="act-btn act-del" onclick="deleteMsg('${msgId}')" title="Kustuta">[x]</button>`;
+    }
+    actionsHtml += `</span>`;
   }
 
   const displayText = msgData.deleted
@@ -658,11 +745,13 @@ function renderMessage(msgData, msgId, isNew) {
     `<span class="msg-colon">:</span> ` +
     displayText +
     statusHtml +
+    expiryHtml +
     (msgData.deleted ? '' : actionsHtml);
 
   if (existing) {
     existing.innerHTML = html;
   } else {
+    maybeInsertDaySeparator(area, msgData.timestamp);
     const line = document.createElement('div');
     line.className = 'msg-line';
     line.id = 'msg-' + msgId;
@@ -670,15 +759,20 @@ function renderMessage(msgData, msgId, isNew) {
     area.appendChild(line);
     area.scrollTop = area.scrollHeight;
 
-    if (msgData.user !== currentUser && !msgData.deleted && initialized && isNew) {
-        // Push teavitus käib läbi Workeri /notify, mida kutsub sendMessage
-    }
-
     if (currentUser === 'Annilill' && isAdmin && !msgData.seen && !msgData.deleted) {
       update(ref(db, 'messages/' + msgId), { seen: true });
     }
   }
 }
+
+window.saveMsg = async function(msgId, isSaved) {
+  try {
+    await update(ref(db, 'messages/' + msgId), { saved: !isSaved });
+    sysMsg(isSaved ? '[ Salvestus eemaldatud ]' : '[ ♦ Sõnum salvestatud — ei aegu ]');
+  } catch(e) {
+    sysMsg('[ VIGA salvestamisel: ' + e.message + ' ]');
+  }
+};
 
 window.editMsg = function(msgId, btn) {
   if (currentUser !== 'Admin') return;
