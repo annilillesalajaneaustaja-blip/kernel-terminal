@@ -51,7 +51,7 @@ async function sendNotifications(env, fromUser, text) {
     const tokenKeys = await env.KV.list({ prefix: 'token:' });
     if (!tokenKeys.keys.length) return;
 
-    const privateKey = await env.SA_PRIVATE_KEY.get();
+    const privateKey = env.SA_PRIVATE_KEY;
     const oauthToken = await getOAuthToken(privateKey);
 
     for (const k of tokenKeys.keys) {
