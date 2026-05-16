@@ -17,9 +17,10 @@ self.addEventListener('install', () => self.skipWaiting());
 self.addEventListener('activate', () => self.clients.claim());
 
 // Taustsõnumid — rakendus suletud või taustal
+// Kasutame data payload-i (mitte notification) et vältida topelt teavitust
 messaging.onBackgroundMessage((payload) => {
-  const title = payload.notification?.title || 'KERNEL_TERMINAL';
-  const body  = payload.notification?.body  || '';
+  const title = payload.data?.title || 'KERNEL_TERMINAL';
+  const body  = payload.data?.body  || '';
   self.registration.showNotification(title, {
     body,
     vibrate: [200, 100, 200],
