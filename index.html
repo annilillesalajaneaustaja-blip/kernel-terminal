@@ -339,26 +339,30 @@
 
   #pwa-banner {
     display: none;
-    background: #000a00;
-    border-bottom: 1px solid var(--green-dim);
+    background: #0a0000;
+    border-bottom: 1px solid var(--red);
     padding: 5px 12px;
     flex-shrink: 0;
     align-items: center;
     gap: 10px;
     justify-content: space-between;
     font-size: 12px;
-    color: var(--green-dim);
+    color: var(--red);
+    animation: redBlink 0.9s step-end infinite;
+    letter-spacing: 1px;
   }
   #pwa-banner.visible { display: flex; }
   #pwa-dismiss {
     background: transparent;
-    border: 1px solid var(--green-dim);
-    color: var(--green-dim);
+    border: 1px solid var(--red);
+    color: var(--red);
     font-family: var(--font);
     font-size: 11px;
     padding: 2px 8px;
     cursor: pointer;
     white-space: nowrap;
+    animation: none;
+    opacity: 1;
   }
 
   #notif-enable-btn:hover {
@@ -885,14 +889,15 @@ document.getElementById('notif-enable-btn').addEventListener('click', requestNot
   const isChrome  = /Chrome/i.test(navigator.userAgent) && !/Edg|OPR/.test(navigator.userAgent);
   const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
 
+  // Näita ainult Android Chrome'is ja ainult kui pole veel avakuvale lisatud
   if (!isAndroid || !isChrome || isStandalone) return;
 
   const banner = document.getElementById('pwa-banner');
   if (!banner) return;
 
   banner.innerHTML =
-    '<span>📲 Lisa avakuvale parema ühenduse jaoks: Chrome ‹› menu (⋮) → "Lisa avakuvale"</span>' +
-    '<button id="pwa-dismiss">[x]</button>';
+    '<span>⚠ LISA AVAKUVALE — muidu teavitused ei tööta: Chrome menu (⋮) → "Lisa avakuvale"</span>' +
+    '<button id="pwa-dismiss">[×]</button>';
 
   banner.classList.add('visible');
 
