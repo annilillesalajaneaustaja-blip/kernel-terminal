@@ -715,20 +715,22 @@ async function sendMessage(text) {
     };
     await push(msgsRef, msgData);
 
-    // Saada push teavitus läbi Cloudflare Workeri
+// Saada push teavitus läbi Cloudflare Workeri
     if (WORKER_URL && !WORKER_URL.includes('SINUNIMI')) {
-      fetch(WORKER_URL + '/notify', {
+      // Veendu, et URL algaks https-ga
+      const notifyUrl = WORKER_URL.startsWith('http') ? WORKER_URL : `https://${WORKER_URL}`;
+      
+      fetch(`${notifyUrl}/notify`, {
         method: 'POST',
+        mode: 'cors', // Oluline CORS-i jaoks
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ fromUser: currentUser, text: text.trim() })
-      }).catch(() => {});
+      })
+      .then(res => {
+        if (!res.ok) console.error('Worker notify failed:', res.status);
+      })
+      .catch(err => console.error('Worker fetch error:', err));
     }
-  } catch(e) {
-    sysMsg('[ SAATMINE EBAÕNNESTUS: ' + e.message + ' ]');
-  } finally {
-    loader.style.display = 'none';
-  }
-}
 
 document.getElementById('pass-input').addEventListener('keydown', (e) => {
   if (e.key === 'Enter') {
@@ -801,8 +803,10 @@ async function initFCM() {
     if (!token) throw new Error('FCM token puudub');
 
     // Registreeri token Cloudflare Workeris
-    const res = await fetch(WORKER_URL + '/register', {
+const registerUrl = WORKER_URL.startsWith('http') ? WORKER_URL : `https://${WORKER_URL}`;
+    const res = await fetch(`${registerUrl}/register`, {
       method: 'POST',
+      mode: 'cors', // Lisa see, et vältida CORS probleeme
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ token, user: currentUser })
     });
