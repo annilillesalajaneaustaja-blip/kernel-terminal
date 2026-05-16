@@ -7,7 +7,7 @@
 <meta name="theme-color" content="#00FF00">
 <link rel="icon" type="image/png" href="./ikoon.png">
 <link rel="apple-touch-icon" href="./ikoon.png">
-<title>KERNEL_TERMINAL</title>
+<title>KERNEL_TERMINAL v4.2.1</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
 
@@ -375,24 +375,19 @@
     flex-shrink: 0;
     align-items: center;
     gap: 10px;
-    justify-content: space-between;
     font-size: 12px;
     color: var(--red);
-    animation: redBlink 0.9s step-end infinite;
     letter-spacing: 1px;
   }
   #pwa-banner.visible { display: flex; }
-  #pwa-dismiss {
-    background: transparent;
-    border: 1px solid var(--red);
-    color: var(--red);
-    font-family: var(--font);
-    font-size: 11px;
-    padding: 2px 8px;
-    cursor: pointer;
+  #pwa-label {
+    animation: redBlink 0.9s step-end infinite;
+    margin-right: 6px;
     white-space: nowrap;
-    animation: none;
-    opacity: 1;
+  }
+  #pwa-instructions {
+    color: var(--red);
+    opacity: 0.85;
   }
 
   #notif-enable-btn:hover {
@@ -469,7 +464,7 @@ Build → Realtime Database → Create Database → Start in test mode
 
 <div id="terminal">
   <div id="topbar">
-    <div class="sys-info">KERNEL_TERM 5.0.1 | ENCRYPTED | <span id="clock"></span></div>
+    <div class="sys-info">KERNEL_TERM 4.2.1 | ENCRYPTED | <span id="clock"></span></div>
     <div class="user-info">SESSION: <span id="current-user-label" style="color:var(--amber)"></span></div>
     <div class="sys-info" id="status-bar">● CONNECTING...</div>
   </div>
@@ -990,14 +985,10 @@ document.getElementById('notif-enable-btn').addEventListener('click', requestNot
   if (!banner) return;
 
   banner.innerHTML =
-    '<span>⚠ LISA AVAKUVALE — muidu teavitused ei tööta: Chrome menu (⋮) → "Lisa avakuvale"</span>' +
-    '<button id="pwa-dismiss">[×]</button>';
+    '<span id="pwa-label">⚠ LISA AVAKUVALE</span>' +
+    '<span id="pwa-instructions">— Chrome menu (⋮) → "Lisa avakuvale"</span>';
 
   banner.classList.add('visible');
-
-  document.getElementById('pwa-dismiss').addEventListener('click', () => {
-    banner.classList.remove('visible');
-  });
 })();
 
 boot();
