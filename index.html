@@ -487,9 +487,7 @@ async function boot() {
 
 function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
-function checkConfig() {
-  return true;
-}
+function checkConfig() { return true; }
 
 function initFirebase() {
   try {
@@ -532,7 +530,6 @@ function login(password) {
   listenMessages();
   initialized = true;
 
-  // Näita banner — kui luba juba antud, aktiveeri FCM kohe
   updateNotifBanner();
   if (isNotifGranted()) {
     initFCM();
@@ -542,8 +539,7 @@ function login(password) {
 function startClock() {
   function tick() {
     const now = new Date();
-    document.getElementById('clock').textContent =
-      now.toLocaleTimeString('et-EE', {hour12: false});
+    document.getElementById('clock').textContent = now.toLocaleTimeString('et-EE', {hour12: false});
   }
   tick();
   setInterval(tick, 1000);
@@ -566,7 +562,6 @@ function renderMessage(msgData, msgId, isNew) {
   const userClass = isAdmin ? 'msg-user-admin' : 'msg-user-annilill';
   const ts = formatTime(msgData.timestamp);
 
-  // Seen-staatus: ainult Admin näeb oma sõnumite staatust
   let statusHtml = '';
   if (currentUser === 'Admin' && isAdmin) {
     const statusClass = msgData.seen ? 'status-seen' : 'status-delivered';
@@ -574,7 +569,6 @@ function renderMessage(msgData, msgId, isNew) {
     statusHtml = `<span class="msg-status ${statusClass}">[${statusText}]</span>`;
   }
 
-  // Muuda/kustuta nupud: ainult Admin näeb, kõikide sõnumite jaoks
   let actionsHtml = '';
   if (currentUser === 'Admin') {
     actionsHtml = `<span class="msg-actions">` +
@@ -583,7 +577,6 @@ function renderMessage(msgData, msgId, isNew) {
       `</span>`;
   }
 
-  // Kustutatud sõnumi kuvamine
   const displayText = msgData.deleted
     ? `<span style="color:#555;font-style:italic;">[sõnum kustutatud]</span>`
     : `<span class="msg-text" id="txt-${msgId}">${escapeHtml(msgData.text)}</span>`;
@@ -605,15 +598,10 @@ function renderMessage(msgData, msgId, isNew) {
     area.appendChild(line);
     area.scrollTop = area.scrollHeight;
 
-    // Saada push teavitus ainult päriselt uutele sõnumitele (mitte ajaloole)
     if (msgData.user !== currentUser && !msgData.deleted && initialized && isNew) {
-      sendPushNotification(
-        'KERNEL_TERMINAL — uus sõnum',
-        msgData.user + ': ' + msgData.text
-      );
+        // Push teavitus käib läbi Workeri /notify, mida kutsub sendMessage
     }
 
-    // Annilill märgib Admin sõnumid nähtuna — aga ise ei näe staatust
     if (currentUser === 'Annilill' && isAdmin && !msgData.seen && !msgData.deleted) {
       update(ref(db, 'messages/' + msgId), { seen: true });
     }
@@ -626,12 +614,10 @@ window.editMsg = function(msgId, btn) {
   if (!txtEl) return;
   const current = txtEl.textContent;
 
-  // Inline edit input
   const input = document.createElement('input');
   input.type = 'text';
   input.value = current;
-  input.style.cssText = 'background:transparent;border:none;border-bottom:1px solid #00AA00;' +
-    'color:#00FF00;font-family:"Courier New",monospace;font-size:14px;outline:none;width:300px;';
+  input.style.cssText = 'background:transparent;border:none;border-bottom:1px solid #00AA00;color:#00FF00;font-family:"Courier New",monospace;font-size:14px;outline:none;width:300px;';
 
   txtEl.replaceWith(input);
   input.focus();
@@ -651,7 +637,7 @@ window.editMsg = function(msgId, btn) {
 
   input.addEventListener('keydown', async (e) => {
     if (e.key === 'Enter') { await save(); }
-    if (e.key === 'Escape') { document.getElementById('msg-' + msgId) && (document.getElementById('msg-' + msgId).innerHTML = document.getElementById('msg-' + msgId).innerHTML); }
+    if (e.key === 'Escape') { location.reload(); }
   });
   input.addEventListener('blur', save);
 };
@@ -701,6 +687,13 @@ function sysMsg(text) {
   area.scrollTop = area.scrollHeight;
 }
 
+// ════════════════════════════════════════════════════
+//   SEND MESSAGE JA PUSH KONFIG
+// ════════════════════════════════════════════════════
+
+const WORKER_URL = 'kernel-push.annilille-salajane-austaja.workers.dev';
+const VAPID_KEY  = 'BHjCejG7QdVqLZsH3LdXXIGDzjR0UruNaRu-sm3pt-nLiQgxb3KYxokcIoTXQAoLoedeLkCErSmPag5-xHMdXQg';
+
 async function sendMessage(text) {
   if (!text.trim() || !db) return;
   const loader = document.getElementById('loader');
@@ -715,27 +708,24 @@ async function sendMessage(text) {
     };
     await push(msgsRef, msgData);
 
-// Saada push teavitus läbi Cloudflare Workeri
     if (WORKER_URL && !WORKER_URL.includes('SINUNIMI')) {
-      // Veendu, et URL algaks https-ga
       const notifyUrl = WORKER_URL.startsWith('http') ? WORKER_URL : `https://${WORKER_URL}`;
-      
       fetch(`${notifyUrl}/notify`, {
         method: 'POST',
-        mode: 'cors', // Oluline CORS-i jaoks
+        mode: 'cors',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ fromUser: currentUser, text: text.trim() })
-      })
-      .then(res => {
-        if (!res.ok) console.error('Worker notify failed:', res.status);
-      })
-      .catch(err => console.error('Worker fetch error:', err));
+      }).catch(err => console.error('Worker fetch error:', err));
     }
+  } catch(e) {
+    sysMsg('[ SAATMINE EBAÕNNESTUS: ' + e.message + ' ]');
+  } finally {
+    loader.style.display = 'none';
+  }
+}
 
 document.getElementById('pass-input').addEventListener('keydown', (e) => {
-  if (e.key === 'Enter') {
-    login(e.target.value);
-  }
+  if (e.key === 'Enter') { login(e.target.value); }
 });
 
 document.getElementById('msg-input').addEventListener('keydown', (e) => {
@@ -748,24 +738,11 @@ document.getElementById('msg-input').addEventListener('keydown', (e) => {
   }
 });
 
-// ════════════════════════════════════════════════════
-//   PUSH TEAVITUSED (FCM + Cloudflare Worker)
-// ════════════════════════════════════════════════════
-
-// !! Asenda see oma Cloudflare Workeri URL-iga pärast deployimist
-const WORKER_URL = 'kernel-push.annilille-salajane-austaja.workers.dev';
-const VAPID_KEY  = 'BHjCejG7QdVqLZsH3LdXXIGDzjR0UruNaRu-sm3pt-nLiQgxb3KYxokcIoTXQAoLoedeLkCErSmPag5-xHMdXQg';
-
 let swReady = false;
 let swReg   = null;
 
-function checkNotificationSupport() {
-  return 'Notification' in window && 'serviceWorker' in navigator;
-}
-
-function isNotifGranted() {
-  return checkNotificationSupport() && Notification.permission === 'granted';
-}
+function checkNotificationSupport() { return 'Notification' in window && 'serviceWorker' in navigator; }
+function isNotifGranted() { return checkNotificationSupport() && Notification.permission === 'granted'; }
 
 function updateNotifBanner() {
   const banner = document.getElementById('notif-banner');
@@ -776,13 +753,8 @@ function updateNotifBanner() {
   } else {
     banner.classList.add('visible');
     if (Notification.permission === 'denied') {
-      document.getElementById('notif-warning-text').textContent =
-        '⚠ TEAVITUSED ON BLOKEERITUD — luba brauseri aadressiriba tabaluku ikoonist';
+      document.getElementById('notif-warning-text').textContent = '⚠ TEAVITUSED ON BLOKEERITUD';
       document.getElementById('notif-enable-btn').style.display = 'none';
-    } else {
-      document.getElementById('notif-warning-text').textContent =
-        '⚠ PUSH TEAVITUSED EI OLE LUBATUD — SÕNUMID JÄÄVAD MÄRKAMATA';
-      document.getElementById('notif-enable-btn').style.display = '';
     }
   }
 }
@@ -802,20 +774,18 @@ async function initFCM() {
 
     if (!token) throw new Error('FCM token puudub');
 
-    // Registreeri token Cloudflare Workeris
-const registerUrl = WORKER_URL.startsWith('http') ? WORKER_URL : `https://${WORKER_URL}`;
+    const registerUrl = WORKER_URL.startsWith('http') ? WORKER_URL : `https://${WORKER_URL}`;
     const res = await fetch(`${registerUrl}/register`, {
       method: 'POST',
-      mode: 'cors', // Lisa see, et vältida CORS probleeme
+      mode: 'cors',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ token, user: currentUser })
     });
+    
     if (!res.ok) throw new Error('Worker register failed: ' + res.status);
 
     updateNotifBanner();
-    sysMsg('[ ✓ Push teavitused aktiivsed — teavitused tulevad ka siis, kui leht on suletud ]');
-
-    // Foreground sõnumid — leht on lahti, DB kuulaja juba kuvab neid
+    sysMsg('[ ✓ Push teavitused aktiivsed ]');
     onMessage(messaging, () => {});
 
   } catch(e) {
@@ -828,24 +798,14 @@ async function requestNotifPermission() {
   if (!checkNotificationSupport()) return;
   try {
     const result = await Notification.requestPermission();
-    if (result === 'granted') {
-      await initFCM();
-    } else {
-      updateNotifBanner();
-      sysMsg('[ ✗ Teavitused keelatud — luba brauseri aadressiriba tabaluku ikoonist ]');
-    }
+    if (result === 'granted') { await initFCM(); } 
+    else { updateNotifBanner(); }
   } catch(e) {
     sysMsg('[ VIGA teavituste lubamisel: ' + e.message + ' ]');
   }
 }
 
-async function sendPushNotification(title, body) {
-  // Cloudflare Worker saadab teavitused — siin ei ole midagi vaja teha
-}
-
 document.getElementById('notif-enable-btn').addEventListener('click', requestNotifPermission);
-
-// ════════════════════════════════════════════════════
 
 boot();
 </script>
