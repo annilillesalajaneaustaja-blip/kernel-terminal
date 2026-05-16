@@ -428,6 +428,8 @@ Build → Realtime Database → Create Database → Start in test mode
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getDatabase, ref, push, onValue, serverTimestamp, update, query, limitToLast, remove, set }
   from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+import { getMessaging, getToken, onMessage }
+  from "https://www.gstatic.com/firebasejs/10.12.2/firebase-messaging.js";
 
 // ════════════════════════════════════════════════════
 //   FIREBASE KONFIGURATSIOON
@@ -533,7 +535,7 @@ function login(password) {
   // Näita banner — kui luba juba antud, aktiveeri FCM kohe
   updateNotifBanner();
   if (isNotifGranted()) {
-    initSW();
+    initFCM();
   }
 }
 
@@ -557,7 +559,7 @@ function escapeHtml(text) {
   return text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
 
-function renderMessage(msgData, msgId) {
+function renderMessage(msgData, msgId, isNew) {
   const area = document.getElementById('messages-area');
   const existing = document.getElementById('msg-' + msgId);
   const isAdmin = msgData.user === 'Admin';
@@ -603,8 +605,8 @@ function renderMessage(msgData, msgId) {
     area.appendChild(line);
     area.scrollTop = area.scrollHeight;
 
-    // Saada push teavitus kui sõnum on teiselt kasutajalt ja leht pole aktiivne
-    if (msgData.user !== currentUser && !msgData.deleted && initialized) {
+    // Saada push teavitus ainult päriselt uutele sõnumitele (mitte ajaloole)
+    if (msgData.user !== currentUser && !msgData.deleted && initialized && isNew) {
       sendPushNotification(
         'KERNEL_TERMINAL — uus sõnum',
         msgData.user + ': ' + msgData.text
@@ -669,16 +671,20 @@ function listenMessages() {
   document.getElementById('status-bar').style.color = '#00FF00';
 
   const q = query(msgsRef, limitToLast(200));
+  let historyLoaded = false;
 
   onValue(q, (snapshot) => {
     const data = snapshot.val();
     if (!data) {
       sysMsg('[ Tere tulemast. ]');
+      historyLoaded = true;
       return;
     }
-    Object.entries(data).forEach(([id, msg]) => {
-      renderMessage(msg, id);
+    const entries = Object.entries(data);
+    entries.forEach(([id, msg]) => {
+      renderMessage(msg, id, historyLoaded);
     });
+    historyLoaded = true;
   }, (error) => {
     document.getElementById('status-bar').textContent = '✗ CONNECTION LOST';
     document.getElementById('status-bar').style.color = '#FF3333';
@@ -708,6 +714,15 @@ async function sendMessage(text) {
       seen: false
     };
     await push(msgsRef, msgData);
+
+    // Saada push teavitus läbi Cloudflare Workeri
+    if (WORKER_URL && !WORKER_URL.includes('SINUNIMI')) {
+      fetch(WORKER_URL + '/notify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ fromUser: currentUser, text: text.trim() })
+      }).catch(() => {});
+    }
   } catch(e) {
     sysMsg('[ SAATMINE EBAÕNNESTUS: ' + e.message + ' ]');
   } finally {
@@ -732,10 +747,15 @@ document.getElementById('msg-input').addEventListener('keydown', (e) => {
 });
 
 // ════════════════════════════════════════════════════
-//   PUSH TEAVITUSED (Service Worker + DB polling)
+//   PUSH TEAVITUSED (FCM + Cloudflare Worker)
 // ════════════════════════════════════════════════════
 
-let swReg = null;
+// !! Asenda see oma Cloudflare Workeri URL-iga pärast deployimist
+const WORKER_URL = 'kernel-push.annilille-salajane-austaja.workers.dev';
+const VAPID_KEY  = 'BHjCejG7QdVqLZsH3LdXXIGDzjR0UruNaRu-sm3pt-nLiQgxb3KYxokcIoTXQAoLoedeLkCErSmPag5-xHMdXQg';
+
+let swReady = false;
+let swReg   = null;
 
 function checkNotificationSupport() {
   return 'Notification' in window && 'serviceWorker' in navigator;
@@ -748,10 +768,7 @@ function isNotifGranted() {
 function updateNotifBanner() {
   const banner = document.getElementById('notif-banner');
   if (!banner) return;
-  if (!checkNotificationSupport()) {
-    banner.classList.remove('visible');
-    return;
-  }
+  if (!checkNotificationSupport()) { banner.classList.remove('visible'); return; }
   if (Notification.permission === 'granted') {
     banner.classList.remove('visible');
   } else {
@@ -768,14 +785,38 @@ function updateNotifBanner() {
   }
 }
 
-async function initSW() {
+async function initFCM() {
+  if (swReady) return;
+  swReady = true;
   try {
     swReg = await navigator.serviceWorker.register('/kernel-terminal/firebase-messaging-sw.js');
     await navigator.serviceWorker.ready;
-    sysMsg('[ ✓ Push teavitused aktiivsed — teavitused tulevad ka kui leht on taustal ]');
+
+    const messaging = getMessaging();
+    const token = await getToken(messaging, {
+      vapidKey: VAPID_KEY,
+      serviceWorkerRegistration: swReg
+    });
+
+    if (!token) throw new Error('FCM token puudub');
+
+    // Registreeri token Cloudflare Workeris
+    const res = await fetch(WORKER_URL + '/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token, user: currentUser })
+    });
+    if (!res.ok) throw new Error('Worker register failed: ' + res.status);
+
     updateNotifBanner();
+    sysMsg('[ ✓ Push teavitused aktiivsed — teavitused tulevad ka siis, kui leht on suletud ]');
+
+    // Foreground sõnumid — leht on lahti, DB kuulaja juba kuvab neid
+    onMessage(messaging, () => {});
+
   } catch(e) {
-    sysMsg('[ ✗ Teavituste SW viga: ' + e.message + ' ]');
+    swReady = false;
+    sysMsg('[ ✗ Push teavituste viga: ' + e.message + ' ]');
   }
 }
 
@@ -784,7 +825,7 @@ async function requestNotifPermission() {
   try {
     const result = await Notification.requestPermission();
     if (result === 'granted') {
-      await initSW();
+      await initFCM();
     } else {
       updateNotifBanner();
       sysMsg('[ ✗ Teavitused keelatud — luba brauseri aadressiriba tabaluku ikoonist ]');
@@ -795,29 +836,10 @@ async function requestNotifPermission() {
 }
 
 async function sendPushNotification(title, body) {
-  if (!isNotifGranted() || !swReg) return;
-  try {
-    // Saada SW-le — SW näitab teavituse (töötab ka kui leht on taustal)
-    const sw = swReg.active || swReg.waiting || swReg.installing;
-    if (sw) {
-      sw.postMessage({
-        type: 'NOTIFY',
-        title: title,
-        body: body,
-        tag: Date.now().toString()
-      });
-    }
-  } catch(e) {
-    console.warn('sendPushNotification viga:', e);
-  }
+  // Cloudflare Worker saadab teavitused — siin ei ole midagi vaja teha
 }
 
 document.getElementById('notif-enable-btn').addEventListener('click', requestNotifPermission);
-
-// Kui luba juba antud, aktiveeri SW kohe pärast login
-if (isNotifGranted()) {
-  initSW();
-}
 
 // ════════════════════════════════════════════════════
 
