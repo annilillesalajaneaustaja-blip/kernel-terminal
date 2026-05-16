@@ -786,7 +786,11 @@ swReg = await navigator.serviceWorker.register('./firebase-messaging-sw.js');
 
     updateNotifBanner();
     sysMsg('[ ✓ Push teavitused aktiivsed ]');
-    onMessage(messaging, () => {});
+    onMessage(messaging, (payload) => {
+      const title = payload.notification?.title || 'KERNEL_TERMINAL';
+      const body  = payload.notification?.body  || '';
+      sysMsg('[ 🔔 ' + body + ' ]');
+    });
 
   } catch(e) {
     swReady = false;
