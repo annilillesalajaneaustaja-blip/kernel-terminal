@@ -23,6 +23,7 @@ messaging.onBackgroundMessage((payload) => {
   const body  = payload.data?.body  || '';
   self.registration.showNotification(title, {
     body,
+    icon: 'https://annilillesalajaneaustaja-blip.github.io/kernel-terminal/ikoon.png',
     vibrate: [200, 100, 200],
     tag: 'kernel-msg'
   });
