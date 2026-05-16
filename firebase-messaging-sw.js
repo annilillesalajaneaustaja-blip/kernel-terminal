@@ -16,15 +16,10 @@ const messaging = firebase.messaging();
 self.addEventListener('install', () => self.skipWaiting());
 self.addEventListener('activate', () => self.clients.claim());
 
-// Taustsõnumid — näita teavitust ainult kui aken EI ole fookuses
-messaging.onBackgroundMessage(async (payload) => {
+// Taustsõnumid — rakendus suletud või taustal
+messaging.onBackgroundMessage((payload) => {
   const title = payload.notification?.title || 'KERNEL_TERMINAL';
   const body  = payload.notification?.body  || '';
-
-  const allClients = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
-  const isFocused = allClients.some(c => c.focused);
-  if (isFocused) return;
-
   self.registration.showNotification(title, {
     body,
     vibrate: [200, 100, 200],
