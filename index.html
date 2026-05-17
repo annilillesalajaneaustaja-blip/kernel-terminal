@@ -205,18 +205,22 @@
     padding-top: 6px;
   }
 
-  .act-btn-save {
+  .act-btn-save, .act-btn-edit, .act-btn-del {
     background: transparent;
     border: none;
-    color: #00AA00;
     font-family: var(--font);
     font-size: 11px;
     cursor: pointer;
     padding: 0 3px;
-    opacity: 0.6;
+    opacity: 0.5;
   }
+  .act-btn-save { color: #00AA00; }
   .act-btn-save:hover { opacity: 1; color: #00FF00; }
   .act-btn-save.saved { color: #00FFFF; opacity: 1; }
+  .act-btn-edit { color: var(--red); }
+  .act-btn-edit:hover { opacity: 1; }
+  .act-btn-del { color: var(--red); }
+  .act-btn-del:hover { opacity: 1; }
 
   .msg-expiry {
     font-size: 10px;
@@ -506,7 +510,7 @@ const firebaseConfig = {
 
 const USERS = {
   "vaheleitea": "Annilill",
-  "87655": "Admin"
+  "87655": "Austaja"
 };
 
 let currentUser = null;
@@ -681,8 +685,8 @@ function escapeHtml(text) {
 function renderMessage(msgData, msgId, isNew) {
   const area = document.getElementById('messages-area');
   const existing = document.getElementById('msg-' + msgId);
-  const isAdmin = msgData.user === 'Admin';
-  const userClass = isAdmin ? 'msg-user-admin' : 'msg-user-annilill';
+  const isAustaja = msgData.user === 'Austaja';
+  const userClass = isAustaja ? 'msg-user-admin' : 'msg-user-annilill';
   const ts = formatTime(msgData.timestamp);
 
   // Automaatne 24h kustutus (salvestatud sõnumeid ei kustutata)
@@ -695,9 +699,9 @@ function renderMessage(msgData, msgId, isNew) {
   }
 
   let statusHtml = '';
-  if (currentUser === 'Admin' && isAdmin) {
+  if (isAustaja) {
     const statusClass = msgData.seen ? 'status-seen' : 'status-delivered';
-    const statusText = msgData.seen ? '✓✓ Seen' : '✓ Delivered';
+    const statusText = msgData.seen ? '✓✓ loetud' : '✓ kohale jõudnud';
     statusHtml = `<span class="msg-status ${statusClass}">[${statusText}]</span>`;
   }
 
@@ -719,16 +723,18 @@ function renderMessage(msgData, msgId, isNew) {
   const saveClass = msgData.saved ? 'act-btn-save saved' : 'act-btn-save';
   const saveLabel = msgData.saved ? '[♦]' : '[♢]';
 
+  // Muudetud märgis
+  const editedHtml = msgData.edited
+    ? `<span class="msg-expiry" style="color:#555;">[muudetud]</span>`
+    : '';
+
   let actionsHtml = '';
   if (!msgData.deleted) {
     actionsHtml = `<span class="msg-actions">` +
-      `<button class="${saveClass}" onclick="saveMsg('${msgId}', ${!!msgData.saved})" title="${msgData.saved ? 'Salvestatud' : 'Salvesta'}">${saveLabel}</button>`;
-    if (currentUser === 'Admin') {
-      actionsHtml +=
-        `<button class="act-btn" onclick="editMsg('${msgId}', this)" title="Muuda">[~]</button>` +
-        `<button class="act-btn act-del" onclick="deleteMsg('${msgId}')" title="Kustuta">[x]</button>`;
-    }
-    actionsHtml += `</span>`;
+      `<button class="${saveClass}" onclick="saveMsg('${msgId}', ${!!msgData.saved})" title="${msgData.saved ? 'Salvestatud' : 'Salvesta'}">${saveLabel}</button>` +
+      `<button class="act-btn-edit" onclick="editMsg('${msgId}', this)" title="Muuda">[~]</button>` +
+      `<button class="act-btn-del" onclick="deleteMsg('${msgId}')" title="Kustuta">[x]</button>` +
+      `</span>`;
   }
 
   const displayText = msgData.deleted
@@ -740,6 +746,7 @@ function renderMessage(msgData, msgId, isNew) {
     `<span class="msg-colon">:</span> ` +
     displayText +
     statusHtml +
+    editedHtml +
     expiryHtml +
     (msgData.deleted ? '' : actionsHtml);
 
@@ -754,7 +761,7 @@ function renderMessage(msgData, msgId, isNew) {
     area.appendChild(line);
     area.scrollTop = area.scrollHeight;
 
-    if (currentUser === 'Annilill' && isAdmin && !msgData.seen && !msgData.deleted) {
+    if (currentUser === 'Annilill' && isAustaja && !msgData.seen && !msgData.deleted) {
       update(ref(db, 'messages/' + msgId), { seen: true });
     }
   }
@@ -770,7 +777,6 @@ window.saveMsg = async function(msgId, isSaved) {
 };
 
 window.editMsg = function(msgId, btn) {
-  if (currentUser !== 'Admin') return;
   const txtEl = document.getElementById('txt-' + msgId);
   if (!txtEl) return;
   const current = txtEl.textContent;
@@ -788,7 +794,7 @@ window.editMsg = function(msgId, btn) {
     const newText = input.value.trim();
     if (newText && newText !== current) {
       try {
-        await update(ref(db, 'messages/' + msgId), { text: newText });
+        await update(ref(db, 'messages/' + msgId), { text: newText, edited: true });
         sysMsg('[ Sõnum muudetud ]');
       } catch(e) {
         sysMsg('[ VIGA muutmisel: ' + e.message + ' ]');
@@ -804,7 +810,6 @@ window.editMsg = function(msgId, btn) {
 };
 
 window.deleteMsg = async function(msgId) {
-  if (currentUser !== 'Admin') return;
   try {
     await update(ref(db, 'messages/' + msgId), { deleted: true, text: '' });
     sysMsg('[ Sõnum kustutatud ]');
@@ -986,7 +991,7 @@ document.getElementById('notif-enable-btn').addEventListener('click', requestNot
 
   banner.innerHTML =
     '<span id="pwa-label">⚠ LISA AVAKUVALE</span>' +
-    '<span id="pwa-instructions"> | Vasakul nurgas kolm täppi (⋮) → "Avaekraanile lisamine" → installi</span>';
+    '<span id="pwa-instructions">— Chrome menu (⋮) → "Lisa avakuvale"</span>';
 
   banner.classList.add('visible');
 })();
