@@ -830,7 +830,6 @@ async function initFCM() {
     const token = await getToken(getMessaging(), { vapidKey: VAPID_KEY, serviceWorkerRegistration: swReg });
     if (!token) throw new Error('FCM token puudub');
 
-    // Kontrolli lockToken väärtust enne registreerimist
     const lockSnap = await get(ref(db, 'settings/lockToken'));
     if (lockSnap.val() === true) {
       sysMsg('[ ⚠ Token lukustatud — uut seadet ei registreerita ]');
@@ -838,8 +837,17 @@ async function initFCM() {
     }
 
     const url = WORKER_URL.startsWith('http') ? WORKER_URL : `https://${WORKER_URL}`;
-    const res = await fetch(`${url}/register`, { ... });
-    ...
+    const res = await fetch(`${url}/register`, {
+      method: 'POST', mode: 'cors',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token, user: currentUser })
+    });
+    if (!res.ok) throw new Error('Worker register failed: ' + res.status);
+    updateNotifBanner();
+    sysMsg('[ ✓ Push teavitused aktiivsed ]');
+  } catch(e) {
+    swReady = false;
+    sysMsg('[ ✗ Push teavituste viga: ' + e.message + ' ]');
   }
 }
 
