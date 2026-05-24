@@ -404,7 +404,7 @@ Build → Realtime Database → Create Database → Start in test mode
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import { getDatabase, ref, push, onValue, serverTimestamp, update, query, limitToLast, set, get }
+import { getDatabase, ref, push, onValue, serverTimestamp, update, query, limitToLast, set, get, remove }
   from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
 import { getMessaging, getToken }
   from "https://www.gstatic.com/firebasejs/10.12.2/firebase-messaging.js";
@@ -468,6 +468,14 @@ async function boot() {
     container.appendChild(el);
   }
   await sleep(300);
+
+  // Automaatne sisselogimine — sama seade
+  const savedUser = localStorage.getItem('kernel_session_user');
+  if (savedUser && Object.values(USERS).includes(savedUser)) {
+    loginAsUser(savedUser);
+    return;
+  }
+
   document.getElementById('login-box').style.display = 'block';
   document.getElementById('pass-input').focus();
 }
@@ -484,8 +492,12 @@ function login(password) {
     setTimeout(() => errEl.textContent = '', 3000);
     return;
   }
+  loginAsUser(username);
+}
 
+function loginAsUser(username) {
   currentUser = username;
+  localStorage.setItem('kernel_session_user', username);
 
   try {
     const app = initializeApp(firebaseConfig);
@@ -577,24 +589,33 @@ function sysMsg(text) {
 function renderMessage(msgData, msgId, isNew) {
   const area = document.getElementById('messages-area');
   const existing = document.getElementById('msg-' + msgId);
-  const isAustaja = msgData.user === 'Austaja';
-  const userClass = isAustaja ? 'msg-user-admin' : 'msg-user-annilill';
+
+  // deleted = text on tühi või deleted lipp
+  const isDeleted = msgData.text === '' || msgData.deleted;
+
+  // Kui kustutatud — eemalda DOM-ist ja lõpeta
+  if (isDeleted) {
+    if (existing) existing.remove();
+    return;
+  }
 
   // Automaatne 24h kustutus
-  if (!msgData.deleted && !msgData.saved && msgData.timestamp) {
+  if (!msgData.saved && msgData.timestamp) {
     if (Date.now() - msgData.timestamp > EXPIRE_MS) {
-      update(ref(db, 'messages/' + msgId), { text: '' });
+      // Kustuta Firebase-ist täielikult
+      remove(ref(db, 'messages/' + msgId)).catch(() => {});
+      if (existing) existing.remove();
       return;
     }
   }
 
+  const isAustaja = msgData.user === 'Austaja';
+  const userClass = isAustaja ? 'msg-user-admin' : 'msg-user-annilill';
+
   // Seen — märgi loetud kui vastaspool saatis
-  if (!existing && currentUser === 'Annilill' && isAustaja && !msgData.seen && !msgData.deleted) {
+  if (!existing && currentUser === 'Annilill' && isAustaja && !msgData.seen) {
     update(ref(db, 'messages/' + msgId), { seen: true });
   }
-
-  // deleted = text on tühi
-  const isDeleted = msgData.text === '' || msgData.deleted;
 
   let statusHtml = '';
   if (isAustaja) {
@@ -604,7 +625,7 @@ function renderMessage(msgData, msgId, isNew) {
   }
 
   let expiryHtml = '';
-  if (!isDeleted && !msgData.saved && msgData.timestamp) {
+  if (!msgData.saved && msgData.timestamp) {
     const remaining = EXPIRE_MS - (Date.now() - msgData.timestamp);
     if (remaining < 2 * 3600000) {
       const h = Math.floor(remaining / 3600000);
@@ -619,25 +640,19 @@ function renderMessage(msgData, msgId, isNew) {
   const saveClass = msgData.saved ? 'act-btn-save saved' : 'act-btn-save';
   const saveLabel = msgData.saved ? '[♦]' : '[♢]';
 
-  let actionsHtml = '';
-  if (!isDeleted) {
-    actionsHtml = `<span class="msg-actions">` +
-      `<button class="${saveClass}" onclick="saveMsg('${msgId}',${!!msgData.saved})">${saveLabel}</button>` +
-      `<button class="act-btn-edit" onclick="editMsg('${msgId}',this)">[~]</button>` +
-      `<button class="act-btn-del" onclick="deleteMsg('${msgId}')">[x]</button>` +
-      `</span>`;
-  }
+  const actionsHtml = `<span class="msg-actions">` +
+    `<button class="${saveClass}" onclick="saveMsg('${msgId}',${!!msgData.saved})">${saveLabel}</button>` +
+    `<button class="act-btn-edit" onclick="editMsg('${msgId}',this)">[~]</button>` +
+    `<button class="act-btn-del" onclick="deleteMsg('${msgId}')">[x]</button>` +
+    `</span>`;
 
-  const displayText = isDeleted
-    ? `<span style="color:#555;font-style:italic;">[sõnum kustutatud]</span>`
-    : `<span class="msg-text" id="txt-${msgId}">${escapeHtml(msgData.text)}</span>`;
+  const displayText = `<span class="msg-text" id="txt-${msgId}">${escapeHtml(msgData.text)}</span>`;
 
   const html =
     `<span class="msg-ts">[${formatTime(msgData.timestamp)}]</span> ` +
     `<span class="${userClass}">${escapeHtml(msgData.user)}</span>` +
     `<span class="msg-colon">:</span> ` +
-    displayText + statusHtml + editedHtml + expiryHtml +
-    (isDeleted ? '' : actionsHtml);
+    displayText + statusHtml + editedHtml + expiryHtml + actionsHtml;
 
   if (existing) {
     existing.innerHTML = html;
@@ -693,8 +708,7 @@ window.editMsg = function(msgId, btn) {
 
 window.deleteMsg = async function(msgId) {
   try {
-    await update(ref(db, 'messages/' + msgId), { text: '' });
-    sysMsg('[ Sõnum kustutatud ]');
+    await remove(ref(db, 'messages/' + msgId));
   } catch(e) { sysMsg('[ VIGA kustutamisel: ' + e.message + ' ]'); }
 };
 
@@ -711,6 +725,14 @@ function listenMessages() {
   onValue(query(msgsRef, limitToLast(200)), (snapshot) => {
     const data = snapshot.val();
     if (!data) { sysMsg('[ Tere tulemast. ]'); historyLoaded = true; return; }
+
+    // Eemalda DOM-ist sõnumid, mida Firebase-is enam pole
+    const area = document.getElementById('messages-area');
+    area.querySelectorAll('.msg-line').forEach(el => {
+      const id = el.id.replace('msg-', '');
+      if (!data[id]) el.remove();
+    });
+
     Object.entries(data).forEach(([id, msg]) => renderMessage(msg, id, historyLoaded));
     historyLoaded = true;
   }, (error) => {
