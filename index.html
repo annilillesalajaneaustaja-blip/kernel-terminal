@@ -215,7 +215,7 @@
     padding-top: 6px;
   }
 
-  .act-btn-save, .act-btn-edit, .act-btn-del {
+  .act-btn-save, .act-btn-heart, .act-btn-edit, .act-btn-del {
     background: transparent;
     border: none;
     font-family: var(--font);
@@ -225,8 +225,10 @@
     opacity: 0.5;
   }
   .act-btn-save { color: #00AA00; }
-  .act-btn-save:hover, .act-btn-edit:hover, .act-btn-del:hover { opacity: 1; }
+  .act-btn-save:hover, .act-btn-heart:hover, .act-btn-edit:hover, .act-btn-del:hover { opacity: 1; }
   .act-btn-save.saved { color: #00FFFF; opacity: 1; }
+  .act-btn-heart { color: #FF6699; }
+  .act-btn-heart.hearted { color: #FF2266; opacity: 1; }
   .act-btn-edit { color: var(--red); }
   .act-btn-del { color: var(--red); }
 
@@ -615,6 +617,15 @@ function renderMessage(msgData, msgId, isNew) {
   // Seen — märgi loetud kui vastaspool saatis
   if (!existing && currentUser === 'Annilill' && isAustaja && !msgData.seen) {
     update(ref(db, 'messages/' + msgId), { seen: true });
+    // Saada teavitus Austajale et sõnum loeti
+    if (WORKER_URL && !WORKER_URL.includes('SINUNIMI')) {
+      const url = WORKER_URL.startsWith('http') ? WORKER_URL : `https://${WORKER_URL}`;
+      fetch(`${url}/notify`, {
+        method: 'POST', mode: 'cors',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ fromUser: 'Annilill', text: '✓✓ Sõnum loetud', toUser: 'Austaja' })
+      }).catch(() => {});
+    }
   }
 
   let statusHtml = '';
@@ -640,8 +651,12 @@ function renderMessage(msgData, msgId, isNew) {
   const saveClass = msgData.saved ? 'act-btn-save saved' : 'act-btn-save';
   const saveLabel = msgData.saved ? '[♦]' : '[♢]';
 
+  const heartClass = msgData.hearted ? 'act-btn-heart hearted' : 'act-btn-heart';
+  const heartLabel = msgData.hearted ? '[♥]' : '[♡]';
+
   const actionsHtml = `<span class="msg-actions">` +
     `<button class="${saveClass}" onclick="saveMsg('${msgId}',${!!msgData.saved})">${saveLabel}</button>` +
+    `<button class="${heartClass}" onclick="heartMsg('${msgId}',${!!msgData.hearted})">${heartLabel}</button>` +
     `<button class="act-btn-edit" onclick="editMsg('${msgId}',this)">[~]</button>` +
     `<button class="act-btn-del" onclick="deleteMsg('${msgId}')">[x]</button>` +
     `</span>`;
@@ -676,6 +691,23 @@ window.saveMsg = async function(msgId, isSaved) {
     await update(ref(db, 'messages/' + msgId), { saved: !isSaved });
     sysMsg(isSaved ? '[ Salvestus eemaldatud ]' : '[ ♦ Sõnum salvestatud — ei aegu ]');
   } catch(e) { sysMsg('[ VIGA salvestamisel: ' + e.message + ' ]'); }
+};
+
+window.heartMsg = async function(msgId, isHearted) {
+  try {
+    const newVal = !isHearted;
+    await update(ref(db, 'messages/' + msgId), { hearted: newVal });
+    if (newVal && WORKER_URL && !WORKER_URL.includes('SINUNIMI')) {
+      const url = WORKER_URL.startsWith('http') ? WORKER_URL : `https://${WORKER_URL}`;
+      // Teavitus läheb teisele kasutajale
+      const toUser = currentUser === 'Annilill' ? 'Austaja' : 'Annilill';
+      fetch(`${url}/notify`, {
+        method: 'POST', mode: 'cors',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ fromUser: currentUser, text: '♥ Sõnumile lisati süda', toUser })
+      }).catch(() => {});
+    }
+  } catch(e) { sysMsg('[ VIGA: ' + e.message + ' ]'); }
 };
 
 window.editMsg = function(msgId, btn) {
