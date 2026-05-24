@@ -616,10 +616,10 @@ function renderMessage(msgData, msgId, isNew) {
 
   // Seen — märgi loetud kui vastaspool näeb sõnumit (mõlemat pidi)
   const sentByOther = msgData.user !== currentUser;
-  if (!existing && sentByOther && !msgData.seen) {
+  if (sentByOther && !msgData.seen) {
     update(ref(db, 'messages/' + msgId), { seen: true });
-    // Teavita saatjat et sõnum loeti
-    if (WORKER_URL && !WORKER_URL.includes('SINUNIMI')) {
+    // Teavita saatjat ainult esimest korda (kui element polnud veel DOM-is)
+    if (!existing && WORKER_URL && !WORKER_URL.includes('SINUNIMI')) {
       const url = WORKER_URL.startsWith('http') ? WORKER_URL : `https://${WORKER_URL}`;
       fetch(`${url}/notify`, {
         method: 'POST', mode: 'cors',
@@ -673,13 +673,28 @@ function renderMessage(msgData, msgId, isNew) {
   if (existing) {
     existing.innerHTML = html;
   } else {
-    maybeInsertDaySeparator(area, msgData.timestamp);
     const line = document.createElement('div');
     line.className = 'msg-line';
     line.id = 'msg-' + msgId;
     line.innerHTML = html;
-    area.appendChild(line);
-    area.scrollTop = area.scrollHeight;
+    // Sisesta õigesse kohta (timestamp järgi) et vältida topeldust
+    let inserted = false;
+    const allLines = area.querySelectorAll('.msg-line');
+    for (const el of allLines) {
+      const elId = el.id.replace('msg-', '');
+      const elMsg = el._msgTs;
+      if (elMsg && msgData.timestamp && elMsg > msgData.timestamp) {
+        area.insertBefore(line, el);
+        inserted = true;
+        break;
+      }
+    }
+    if (!inserted) {
+      maybeInsertDaySeparator(area, msgData.timestamp);
+      area.appendChild(line);
+      if (isNew) area.scrollTop = area.scrollHeight;
+    }
+    line._msgTs = msgData.timestamp;
   }
 }
 
@@ -899,7 +914,6 @@ async function initFCM() {
     });
     if (!res.ok) throw new Error('Worker register failed: ' + res.status);
     updateNotifBanner();
-    sysMsg('[ ✓ Push teavitused aktiivsed ]');
   } catch(e) {
     swReady = false;
     sysMsg('[ ✗ Push teavituste viga: ' + e.message + ' ]');
@@ -932,12 +946,7 @@ async function checkMissedMessages() {
     if (!snapshot.exists()) return;
     const missed = Object.values(snapshot.val()).filter(m => m.user !== currentUser && m.text !== '');
     if (!missed.length) return;
-    const last = missed[missed.length - 1];
-    const body = missed.length === 1
-      ? last.user + ': ' + last.text
-      : missed.length + ' uut sõnumit, viimane: ' + last.user + ': ' + last.text;
-    if (Notification.permission === 'granted')
-      new Notification('KERNEL_TERMINAL', { body, tag: 'kernel-missed', vibrate: [200,100,200] });
+    // SW käsitleb push teavitusi — siit ei saada topelt
   } catch(e) { console.log('checkMissedMessages:', e.message); }
 }
 
