@@ -614,22 +614,23 @@ function renderMessage(msgData, msgId, isNew) {
   const isAustaja = msgData.user === 'Austaja';
   const userClass = isAustaja ? 'msg-user-admin' : 'msg-user-annilill';
 
-  // Seen — märgi loetud kui vastaspool saatis
-  if (!existing && currentUser === 'Annilill' && isAustaja && !msgData.seen) {
+  // Seen — märgi loetud kui vastaspool näeb sõnumit (mõlemat pidi)
+  const sentByOther = msgData.user !== currentUser;
+  if (!existing && sentByOther && !msgData.seen) {
     update(ref(db, 'messages/' + msgId), { seen: true });
-    // Saada teavitus Austajale et sõnum loeti
+    // Teavita saatjat et sõnum loeti
     if (WORKER_URL && !WORKER_URL.includes('SINUNIMI')) {
       const url = WORKER_URL.startsWith('http') ? WORKER_URL : `https://${WORKER_URL}`;
       fetch(`${url}/notify`, {
         method: 'POST', mode: 'cors',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ fromUser: 'Annilill', text: '✓✓ Sõnum loetud', toUser: 'Austaja' })
+        body: JSON.stringify({ fromUser: currentUser, text: '✓✓ Sõnum loetud', toUser: msgData.user })
       }).catch(() => {});
     }
   }
 
   let statusHtml = '';
-  if (isAustaja) {
+  if (msgData.user === currentUser) {
     const statusClass = msgData.seen ? 'status-seen' : 'status-delivered';
     const statusText = msgData.seen ? '✓✓ loetud' : '✓ kohale jõudnud';
     statusHtml = `<span class="msg-status ${statusClass}">[${statusText}]</span>`;
