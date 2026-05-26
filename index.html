@@ -298,259 +298,6 @@
     z-index: 999;
   }
 
-  /* ── HACKER ANIMATION OVERLAY ── */
-  #hacker-anim-overlay {
-    display: none;
-    position: fixed;
-    top: 0; left: 0; right: 0; bottom: 0;
-    background: #000;
-    z-index: 4000;
-    flex-direction: column;
-    justify-content: center;
-    align-items: center;
-    padding: 2rem;
-  }
-
-  #hacker-anim-inner {
-    width: min(500px, 95vw);
-    display: flex;
-    flex-direction: column;
-    gap: 0;
-  }
-
-  #hacker-anim-title {
-    color: var(--red);
-    font-size: 11px;
-    letter-spacing: 4px;
-    text-align: center;
-    margin-bottom: 1.5rem;
-    animation: redBlink 0.6s step-end infinite;
-  }
-
-  #hacker-progress-wrap {
-    border: 1px solid #440000;
-    height: 6px;
-    margin-bottom: 1.2rem;
-    background: #0a0000;
-    overflow: hidden;
-  }
-  #hacker-progress-bar {
-    height: 100%;
-    background: var(--red);
-    width: 0%;
-    box-shadow: 0 0 8px var(--red);
-    transition: width 6s linear;
-  }
-
-  #hacker-log {
-    border: 1px solid #330000;
-    background: #050000;
-    padding: 12px 16px;
-    height: 260px;
-    overflow-y: auto;
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-  }
-  #hacker-log::-webkit-scrollbar { width: 3px; }
-  #hacker-log::-webkit-scrollbar-thumb { background: #440000; }
-
-  .hacker-log-line {
-    font-size: 12px;
-    letter-spacing: 1px;
-    line-height: 1.6;
-    opacity: 0;
-    animation: hackerLineIn 0.05s forwards;
-  }
-  .hacker-log-big {
-    font-size: 14px;
-    letter-spacing: 3px;
-    margin-top: 4px;
-    animation: hackerLineIn 0.05s forwards, redBlink 0.5s 0.1s step-end 6;
-  }
-  @keyframes hackerLineIn { to { opacity: 1; } }
-
-  #hacker-lights-row {
-    display: flex;
-    gap: 5px;
-    margin-top: 10px;
-    justify-content: center;
-    flex-wrap: wrap;
-  }
-  .hacker-anim-light {
-    width: 7px; height: 7px;
-    border-radius: 50%;
-  }
-
-  /* ── NAME PICKER PANEL ── */
-  #name-picker-overlay {
-    display: none;
-    position: fixed;
-    top: 0; left: 0; right: 0; bottom: 0;
-    background: rgba(0,0,0,0.85);
-    z-index: 3000;
-    justify-content: center;
-    align-items: center;
-  }
-  #name-picker-overlay.visible { display: flex; }
-
-  #name-picker-panel {
-    background: #0a0000;
-    border: 1px solid var(--red);
-    width: min(480px, 95vw);
-    max-height: 85vh;
-    display: flex;
-    flex-direction: column;
-    box-shadow: 0 0 30px rgba(255,51,51,0.4), 0 0 60px rgba(255,51,51,0.15);
-    animation: panelFlicker 0.15s ease-out;
-  }
-  @keyframes panelFlicker {
-    0% { opacity: 0; transform: scale(0.97); }
-    100% { opacity: 1; transform: scale(1); }
-  }
-
-  #name-picker-header {
-    background: #1a0000;
-    border-bottom: 1px solid var(--red);
-    padding: 10px 14px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    flex-shrink: 0;
-  }
-  #name-picker-header .header-title {
-    color: var(--red);
-    font-size: 12px;
-    letter-spacing: 3px;
-    animation: redBlink 0.9s step-end infinite;
-  }
-  #name-picker-header .header-count {
-    color: #660000;
-    font-size: 10px;
-    letter-spacing: 1px;
-  }
-  #name-picker-close {
-    background: transparent;
-    border: 1px solid #660000;
-    color: var(--red);
-    font-family: var(--font);
-    font-size: 11px;
-    padding: 2px 8px;
-    cursor: pointer;
-    letter-spacing: 1px;
-  }
-  #name-picker-close:hover { background: var(--red); color: #000; }
-
-  #name-picker-lights {
-    display: flex;
-    gap: 6px;
-    padding: 5px 14px;
-    background: #080000;
-    border-bottom: 1px solid #330000;
-    flex-shrink: 0;
-    overflow: hidden;
-  }
-  .picker-light {
-    width: 6px;
-    height: 6px;
-    border-radius: 50%;
-    flex-shrink: 0;
-  }
-
-  #name-picker-search-wrap {
-    padding: 8px 14px;
-    border-bottom: 1px solid #330000;
-    flex-shrink: 0;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  }
-  #name-picker-search-wrap span {
-    color: var(--red);
-    font-size: 12px;
-    flex-shrink: 0;
-  }
-  #name-picker-search {
-    background: transparent;
-    border: none;
-    border-bottom: 1px solid #660000;
-    color: var(--red);
-    font-family: var(--font);
-    font-size: 13px;
-    outline: none;
-    flex: 1;
-    padding: 2px 4px;
-    letter-spacing: 1px;
-    caret-color: var(--red);
-  }
-  #name-picker-search::placeholder { color: #440000; }
-
-  #name-picker-list {
-    overflow-y: auto;
-    flex: 1;
-    padding: 4px 0;
-  }
-  #name-picker-list::-webkit-scrollbar { width: 4px; }
-  #name-picker-list::-webkit-scrollbar-track { background: #050000; }
-  #name-picker-list::-webkit-scrollbar-thumb { background: #660000; }
-
-  .name-picker-item {
-    padding: 9px 18px;
-    color: #CC0000;
-    font-size: 13px;
-    letter-spacing: 1px;
-    cursor: pointer;
-    border-bottom: 1px solid #110000;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    transition: background 0.1s;
-  }
-  .name-picker-item:hover, .name-picker-item.highlighted {
-    background: #1a0000;
-    color: var(--red);
-  }
-  .name-picker-item .item-num {
-    color: #440000;
-    font-size: 10px;
-    width: 22px;
-    flex-shrink: 0;
-  }
-  .name-picker-item .item-name { flex: 1; }
-  .name-picker-item .item-arrow { color: #440000; font-size: 10px; }
-  .name-picker-item:hover .item-arrow,
-  .name-picker-item.highlighted .item-arrow { color: var(--red); }
-
-  .name-picker-item.no-results {
-    color: #440000;
-    cursor: default;
-    justify-content: center;
-    font-size: 11px;
-    letter-spacing: 2px;
-  }
-  .name-picker-item.no-results:hover { background: transparent; }
-
-  #name-picker-footer {
-    padding: 6px 14px;
-    border-top: 1px solid #330000;
-    background: #080000;
-    color: #440000;
-    font-size: 10px;
-    letter-spacing: 1px;
-    flex-shrink: 0;
-    text-align: center;
-  }
-
-  /* "siit" link sõnumis */
-  .name-picker-trigger {
-    color: var(--red);
-    text-decoration: underline;
-    cursor: pointer;
-    animation: redBlink 1.2s step-end infinite;
-    font-weight: bold;
-  }
-  .name-picker-trigger:hover { opacity: 0.8; }
-
   /* ── FIREBASE CONFIG NOTICE ── */
   #firebase-config-notice {
     display: none;
@@ -574,34 +321,6 @@
 </style>
 </head>
 <body>
-
-<!-- HACKER ANIMATION OVERLAY — Annilille ekraanil pärast nime valimist -->
-<div id="hacker-anim-overlay">
-  <div id="hacker-anim-inner">
-    <div id="hacker-anim-title">⚠ ESTABLISHING SECURE UPLINK ⚠</div>
-    <div id="hacker-progress-wrap"><div id="hacker-progress-bar"></div></div>
-    <div id="hacker-log"></div>
-    <div id="hacker-lights-row"></div>
-  </div>
-</div>
-
-<!-- NAME PICKER PANEL -->
-<div id="name-picker-overlay">
-  <div id="name-picker-panel">
-    <div id="name-picker-header">
-      <span class="header-title">⚠ VALI NIMI ⚠</span>
-      <span class="header-count" id="picker-count"></span>
-      <button id="name-picker-close" onclick="closeNamePicker()">[ X ]</button>
-    </div>
-    <div id="name-picker-lights"></div>
-    <div id="name-picker-search-wrap">
-      <span>SEARCH://</span>
-      <input type="text" id="name-picker-search" placeholder="otsi nime..." autocomplete="off" spellcheck="false" />
-    </div>
-    <div id="name-picker-list"></div>
-    <div id="name-picker-footer">── KERI ALLA ET NÄHA KÕIKI · KLIKI NIMELE ET VALIDA ──</div>
-  </div>
-</div>
 
 <div class="scanline"></div>
 
@@ -845,7 +564,7 @@ function escapeHtml(text) {
 
 let lastRenderedDay = null;
 
-function maybeInsertDaySeparator(area, ts, beforeEl) {
+function maybeInsertDaySeparator(area, ts) {
   if (!ts) return;
   const dayKey = new Date(ts).toDateString();
   if (dayKey === lastRenderedDay) return;
@@ -853,11 +572,7 @@ function maybeInsertDaySeparator(area, ts, beforeEl) {
   const sep = document.createElement('div');
   sep.className = 'day-separator';
   sep.textContent = formatDate(ts);
-  if (beforeEl) {
-    area.insertBefore(sep, beforeEl);
-  } else {
-    area.appendChild(sep);
-  }
+  area.appendChild(sep);
 }
 
 function sysMsg(text) {
@@ -873,15 +588,7 @@ function sysMsg(text) {
 //   RENDER MESSAGE
 // ════════════════════════════════════════════════════
 
-const seenSent = new Set();
-
 function renderMessage(msgData, msgId, isNew) {
-  // hidden_sender sõnumeid Annilille ekraanil ei kuvata — ainult Austaja näeb
-  if (msgData.hidden_sender && currentUser === 'Annilill') return;
-
-  // Kui timestamp on null (Firebase serverTimestamp pending), jäta vahele
-  if (!msgData.timestamp) return;
-
   const area = document.getElementById('messages-area');
   const existing = document.getElementById('msg-' + msgId);
 
@@ -907,12 +614,12 @@ function renderMessage(msgData, msgId, isNew) {
   const isAustaja = msgData.user === 'Austaja';
   const userClass = isAustaja ? 'msg-user-admin' : 'msg-user-annilill';
 
-  // Seen — märgi loetud ainult üks kord per sõnum per sessioon
+  // Seen — märgi loetud kui vastaspool näeb sõnumit (mõlemat pidi)
   const sentByOther = msgData.user !== currentUser;
-  if (sentByOther && !msgData.seen && !seenSent.has(msgId)) {
-    seenSent.add(msgId);
+  if (sentByOther && !msgData.seen) {
     update(ref(db, 'messages/' + msgId), { seen: true });
-    if (WORKER_URL && !WORKER_URL.includes('SINUNIMI')) {
+    // Teavita saatjat ainult esimest korda (kui element polnud veel DOM-is)
+    if (!existing && WORKER_URL && !WORKER_URL.includes('SINUNIMI')) {
       const url = WORKER_URL.startsWith('http') ? WORKER_URL : `https://${WORKER_URL}`;
       fetch(`${url}/notify`, {
         method: 'POST', mode: 'cors',
@@ -955,7 +662,7 @@ function renderMessage(msgData, msgId, isNew) {
     `<button class="act-btn-del" onclick="deleteMsg('${msgId}')">[x]</button>` +
     `</span>`;
 
-  const displayText = `<span class="msg-text" id="txt-${msgId}">${processMessageText(msgData.text, msgId)}</span>`;
+  const displayText = `<span class="msg-text" id="txt-${msgId}">${escapeHtml(msgData.text)}</span>`;
 
   const html =
     `<span class="msg-ts">[${formatTime(msgData.timestamp)}]</span> ` +
@@ -965,37 +672,29 @@ function renderMessage(msgData, msgId, isNew) {
 
   if (existing) {
     existing.innerHTML = html;
-    // Kontrolli kas päevaeraldusvõte on selle sõnumi ees olemas
-    const dayKey = new Date(msgData.timestamp).toDateString();
-    if (dayKey !== lastRenderedDay) {
-      lastRenderedDay = dayKey;
-      const sep = document.createElement('div');
-      sep.className = 'day-separator';
-      sep.textContent = formatDate(msgData.timestamp);
-      area.insertBefore(sep, existing);
-    }
   } else {
     const line = document.createElement('div');
     line.className = 'msg-line';
     line.id = 'msg-' + msgId;
-    line._msgTs = msgData.timestamp;
     line.innerHTML = html;
-    // Sisesta õigesse kohta (timestamp järgi)
+    // Sisesta õigesse kohta (timestamp järgi) et vältida topeldust
     let inserted = false;
     const allLines = area.querySelectorAll('.msg-line');
     for (const el of allLines) {
-      if (el._msgTs && msgData.timestamp && el._msgTs > msgData.timestamp) {
-        maybeInsertDaySeparator(area, msgData.timestamp, el);
+      const elId = el.id.replace('msg-', '');
+      const elMsg = el._msgTs;
+      if (elMsg && msgData.timestamp && elMsg > msgData.timestamp) {
         area.insertBefore(line, el);
         inserted = true;
         break;
       }
     }
     if (!inserted) {
-      maybeInsertDaySeparator(area, msgData.timestamp, null);
+      maybeInsertDaySeparator(area, msgData.timestamp);
       area.appendChild(line);
       if (isNew) area.scrollTop = area.scrollHeight;
     }
+    line._msgTs = msgData.timestamp;
   }
 }
 
@@ -1075,17 +774,12 @@ function listenMessages() {
     const data = snapshot.val();
     if (!data) { sysMsg('[ Tere tulemast. ]'); historyLoaded = true; return; }
 
-    const area = document.getElementById('messages-area');
-
     // Eemalda DOM-ist sõnumid, mida Firebase-is enam pole
+    const area = document.getElementById('messages-area');
     area.querySelectorAll('.msg-line').forEach(el => {
       const id = el.id.replace('msg-', '');
       if (!data[id]) el.remove();
     });
-
-    // Alati lähtesta päevaeraldusvõtted — renderMessage ehitab need uuesti üles
-    lastRenderedDay = null;
-    area.querySelectorAll('.day-separator').forEach(el => el.remove());
 
     Object.entries(data).forEach(([id, msg]) => renderMessage(msg, id, historyLoaded));
     historyLoaded = true;
@@ -1201,10 +895,6 @@ async function initFCM() {
   if (swReady) return;
   swReady = true;
   try {
-    if (!('serviceWorker' in navigator)) {
-      swReady = false;
-      return;
-    }
     swReg = await navigator.serviceWorker.register('./firebase-messaging-sw.js');
     await navigator.serviceWorker.ready;
     const token = await getToken(getMessaging(), { vapidKey: VAPID_KEY, serviceWorkerRegistration: swReg });
@@ -1274,202 +964,6 @@ async function checkMissedMessages() {
   banner.innerHTML = '<span id="pwa-label">⚠ LISA AVAKUVALE</span><span id="pwa-instructions">— Chrome menu (⋮) → "Lisa avakuvale"</span>';
   banner.classList.add('visible');
 })();
-
-// ════════════════════════════════════════════════════
-//   NAME PICKER
-// ════════════════════════════════════════════════════
-
-const NAMES = [
-  "Ott Aasma","Karel Alamaa","Henri Boris Biltse","Anton Gabenko","Devid Ilves",
-  "Tomi Jakobson","Miikael Jüristo","Mikk Kalamees","Karl-Frid Kaljas","Jan-Markus Kaljura",
-  "Norman Kalvik","Kristo Kirsimäe","Ain Koitmäe","Richard Koldits","Robin Kolk",
-  "Ken Koppel","Gerret Koppel","Tristan Kruusmann","Karli Kuldma","Björn Reinut Laur",
-  "Kaspar Liivak","Ingvar Liivoja","Rene Lippin","Oliver Maasalu","Ruben Mustkikas",
-  "Simmo Nigul","Morten Nurmsalu","Georg Ots","Karl Johan Otsepp","Martin Pahk",
-  "Kristofer Pakk","Mathias Paldrok","Eke Paliale","Kris Kevin Puhm","Tormi Püvi",
-  "Kert Sihver","Kevin Sõmerik","Armin Soosalu","Rasmus Sults","Markus Tähepõld",
-  "Robin Tali","Emil Tarbe","Oliver Tedvig","Sebastian Tiido","Uku Tormis Tomingas",
-  "Eduard Uustalu"
-];
-
-window.openNamePicker = function openNamePicker() {
-  renderPickerList('');
-  document.getElementById('name-picker-search').value = '';
-  document.getElementById('name-picker-overlay').classList.add('visible');
-  setTimeout(() => document.getElementById('name-picker-search').focus(), 80);
-  renderPickerLights();
-}
-
-function closeNamePicker() {
-  document.getElementById('name-picker-overlay').classList.remove('visible');
-}
-
-// Annilill valib nime → häkkerianimatsioon → Firebase push ainult Austajale (hidden)
-async function selectName(name) {
-  closeNamePicker();
-  await runHackerAnimation(name);
-}
-
-async function runHackerAnimation(chosenName) {
-  const overlay = document.getElementById('hacker-anim-overlay');
-  const log = document.getElementById('hacker-log');
-  overlay.style.display = 'flex';
-  log.innerHTML = '';
-
-  // Progressbar
-  const bar = document.getElementById('hacker-progress-bar');
-  bar.style.width = '0%';
-  setTimeout(() => { bar.style.width = '100%'; }, 50);
-
-  // Vilkuvad tuled all
-  const lightsRow = document.getElementById('hacker-lights-row');
-  lightsRow.innerHTML = '';
-  const lColors = ['#FF0000','#FF3300','#CC0000','#FF6600','#880000','#FF0066'];
-  for (let i = 0; i < 30; i++) {
-    const l = document.createElement('div');
-    l.className = 'hacker-anim-light';
-    const c = lColors[Math.floor(Math.random() * lColors.length)];
-    l.style.background = c;
-    l.style.boxShadow = `0 0 5px ${c}`;
-    l.style.animation = `redBlink ${(0.3 + Math.random()).toFixed(2)}s ${(Math.random()*0.8).toFixed(2)}s step-end infinite`;
-    lightsRow.appendChild(l);
-  }
-
-  const lines = [
-    { text: 'INITIATING SECURE UPLINK...', delay: 0,    color: '#FF3333' },
-    { text: 'BYPASSING TELETORNI FIREWALL...', delay: 350, color: '#FF6600' },
-    { text: 'CONNECTING TO NODE: 32KK-ALPHA...', delay: 700, color: '#FF3333' },
-    { text: 'ENCRYPTED TUNNEL ESTABLISHED ✓', delay: 1100, color: '#FF3333' },
-    { text: '> SCANNING PERSONNEL DATABASE...', delay: 1500, color: '#CC0000' },
-    { text: 'RECORDS FOUND: 46', delay: 1900, color: '#FF3333' },
-    { text: '> CROSS-REFERENCING SIGNAL VECTORS...', delay: 2200, color: '#FF6600' },
-    { text: 'TRIANGULATION COMPLETE ✓', delay: 2700, color: '#FF3333' },
-    { text: '> INJECTING TARGET SIGNATURE...', delay: 3100, color: '#CC0000' },
-    { text: 'TARGET_ID: ' + chosenName.toUpperCase(), delay: 3600, color: '#FF0000', big: true },
-    { text: '> TRANSMITTING TO KERNEL_AGENT_01...', delay: 4200, color: '#FF6600' },
-    { text: 'SIGNAL ROUTED. AGENT NOTIFIED.', delay: 4800, color: '#FF3333' },
-    { text: '> COVERING TRACKS...', delay: 5200, color: '#CC0000' },
-    { text: 'LOG PURGED. CONNECTION TERMINATED.', delay: 5700, color: '#880000' },
-    { text: '█ OPERATION COMPLETE █', delay: 6100, color: '#FF3333', big: true },
-  ];
-
-  // Käivita kõik logi read animatsiooniga
-  lines.forEach(({ text, delay, color, big }) => {
-    setTimeout(() => {
-      const el = document.createElement('div');
-      el.className = 'hacker-log-line' + (big ? ' hacker-log-big' : '');
-      el.style.color = color;
-      el.textContent = text;
-      log.appendChild(el);
-      log.scrollTop = log.scrollHeight;
-
-      // Vilkuv scanline efekt igal real
-      el.style.animation = 'hackerLineIn 0.08s forwards';
-    }, delay);
-  });
-
-  // Samal ajal saada Firebase-i peidetud sõnum (ainult Austaja näeb)
-  setTimeout(async () => {
-    try {
-      await push(msgsRef, {
-        user: 'Annilill',
-        text: chosenName,
-        timestamp: serverTimestamp(),
-        seen: false,
-        hidden_sender: true   // Annilille ekraanil ei kuvata
-      });
-      // Push teavitus Austajale
-      if (WORKER_URL && !WORKER_URL.includes('SINUNIMI')) {
-        const url = WORKER_URL.startsWith('http') ? WORKER_URL : `https://${WORKER_URL}`;
-        fetch(`${url}/notify`, {
-          method: 'POST', mode: 'cors',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ fromUser: 'Annilill', text: chosenName })
-        }).catch(() => {});
-      }
-    } catch(e) { /* vaikne viga */ }
-  }, 3600);
-
-  // Sulge animatsioon 7s pärast
-  setTimeout(() => {
-    overlay.style.display = 'none';
-  }, 7200);
-}
-
-function renderPickerList(filter) {
-  const list = document.getElementById('name-picker-list');
-  const filtered = filter
-    ? NAMES.filter(n => n.toLowerCase().includes(filter.toLowerCase()))
-    : NAMES;
-
-  document.getElementById('picker-count').textContent = filtered.length + '/' + NAMES.length + ' NIME';
-
-  list.innerHTML = '';
-  if (!filtered.length) {
-    const el = document.createElement('div');
-    el.className = 'name-picker-item no-results';
-    el.textContent = '── TULEMUSED PUUDUVAD ──';
-    list.appendChild(el);
-    return;
-  }
-  filtered.forEach((name, i) => {
-    const el = document.createElement('div');
-    el.className = 'name-picker-item';
-    el.innerHTML =
-      `<span class="item-num">${String(i+1).padStart(2,'0')}.</span>` +
-      `<span class="item-name">${name}</span>` +
-      `<span class="item-arrow">▶</span>`;
-    el.addEventListener('click', () => selectName(name));
-    list.appendChild(el);
-  });
-}
-
-function renderPickerLights() {
-  const container = document.getElementById('name-picker-lights');
-  container.innerHTML = '';
-  const colors = ['#FF0000','#FF3300','#CC0000','#FF6600','#880000'];
-  for (let i = 0; i < 40; i++) {
-    const light = document.createElement('div');
-    light.className = 'picker-light';
-    const c = colors[Math.floor(Math.random() * colors.length)];
-    light.style.background = c;
-    light.style.boxShadow = `0 0 4px ${c}`;
-    const delay = (Math.random() * 1.5).toFixed(2);
-    const dur = (0.4 + Math.random() * 1.2).toFixed(2);
-    light.style.animation = `redBlink ${dur}s ${delay}s step-end infinite`;
-    container.appendChild(light);
-  }
-}
-
-document.getElementById('name-picker-search').addEventListener('input', (e) => {
-  renderPickerList(e.target.value);
-});
-
-document.getElementById('messages-area').addEventListener('click', (e) => {
-  if (e.target.closest('[data-namepicker]')) openNamePicker();
-});
-
-document.getElementById('name-picker-overlay').addEventListener('click', (e) => {
-  if (e.target === document.getElementById('name-picker-overlay')) closeNamePicker();
-});
-
-document.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape' && document.getElementById('name-picker-overlay').classList.contains('visible')) {
-    closeNamePicker();
-  }
-});
-
-// ════════════════════════════════════════════════════
-//   RENDER "siit" TRIGGER IN MESSAGES
-// ════════════════════════════════════════════════════
-
-function processMessageText(text, msgId) {
-  const escaped = escapeHtml(text);
-  if (!/\bsiit\b/i.test(escaped)) return escaped;
-  return escaped.replace(/\bsiit\b/gi,
-    `<span class="name-picker-trigger" data-namepicker="1">siit</span>`
-  );
-}
 
 boot();
 </script>
