@@ -873,6 +873,8 @@ function sysMsg(text) {
 //   RENDER MESSAGE
 // ════════════════════════════════════════════════════
 
+const seenSent = new Set();
+
 function renderMessage(msgData, msgId, isNew) {
   // hidden_sender sõnumeid Annilille ekraanil ei kuvata — ainult Austaja näeb
   if (msgData.hidden_sender && currentUser === 'Annilill') return;
@@ -905,9 +907,10 @@ function renderMessage(msgData, msgId, isNew) {
   const isAustaja = msgData.user === 'Austaja';
   const userClass = isAustaja ? 'msg-user-admin' : 'msg-user-annilill';
 
-  // Seen — märgi loetud ainult esimest korda (kui element polnud veel DOM-is)
+  // Seen — märgi loetud ainult üks kord per sõnum per sessioon
   const sentByOther = msgData.user !== currentUser;
-  if (sentByOther && !msgData.seen && !existing) {
+  if (sentByOther && !msgData.seen && !seenSent.has(msgId)) {
+    seenSent.add(msgId);
     update(ref(db, 'messages/' + msgId), { seen: true });
     if (WORKER_URL && !WORKER_URL.includes('SINUNIMI')) {
       const url = WORKER_URL.startsWith('http') ? WORKER_URL : `https://${WORKER_URL}`;
@@ -962,6 +965,15 @@ function renderMessage(msgData, msgId, isNew) {
 
   if (existing) {
     existing.innerHTML = html;
+    // Kontrolli kas päevaeraldusvõte on selle sõnumi ees olemas
+    const dayKey = new Date(msgData.timestamp).toDateString();
+    if (dayKey !== lastRenderedDay) {
+      lastRenderedDay = dayKey;
+      const sep = document.createElement('div');
+      sep.className = 'day-separator';
+      sep.textContent = formatDate(msgData.timestamp);
+      area.insertBefore(sep, existing);
+    }
   } else {
     const line = document.createElement('div');
     line.className = 'msg-line';
@@ -1071,14 +1083,9 @@ function listenMessages() {
       if (!data[id]) el.remove();
     });
 
-    // Kontrolli kas on uusi sõnumeid, mida DOM-is pole
-    const hasNewMsgs = Object.keys(data).some(id => !document.getElementById('msg-' + id));
-
-    if (hasNewMsgs) {
-      // Uued sõnumid — lähtesta separaatorid ja renderdab uuesti
-      lastRenderedDay = null;
-      area.querySelectorAll('.day-separator').forEach(el => el.remove());
-    }
+    // Alati lähtesta päevaeraldusvõtted — renderMessage ehitab need uuesti üles
+    lastRenderedDay = null;
+    area.querySelectorAll('.day-separator').forEach(el => el.remove());
 
     Object.entries(data).forEach(([id, msg]) => renderMessage(msg, id, historyLoaded));
     historyLoaded = true;
