@@ -873,6 +873,9 @@ function renderMessage(msgData, msgId, isNew) {
   // hidden_sender sõnumeid Annilille ekraanil ei kuvata — ainult Austaja näeb
   if (msgData.hidden_sender && currentUser === 'Annilill') return;
 
+  // Kui timestamp on null (Firebase serverTimestamp pending), jäta vahele
+  if (!msgData.timestamp) return;
+
   const area = document.getElementById('messages-area');
   const existing = document.getElementById('msg-' + msgId);
 
@@ -1266,7 +1269,7 @@ const NAMES = [
   "Eduard Uustalu"
 ];
 
-function openNamePicker() {
+window.openNamePicker = function openNamePicker() {
   renderPickerList('');
   document.getElementById('name-picker-search').value = '';
   document.getElementById('name-picker-overlay').classList.add('visible');
