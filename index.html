@@ -845,7 +845,7 @@ function escapeHtml(text) {
 
 let lastRenderedDay = null;
 
-function maybeInsertDaySeparator(area, ts) {
+function maybeInsertDaySeparator(area, ts, beforeEl) {
   if (!ts) return;
   const dayKey = new Date(ts).toDateString();
   if (dayKey === lastRenderedDay) return;
@@ -853,7 +853,11 @@ function maybeInsertDaySeparator(area, ts) {
   const sep = document.createElement('div');
   sep.className = 'day-separator';
   sep.textContent = formatDate(ts);
-  area.appendChild(sep);
+  if (beforeEl) {
+    area.insertBefore(sep, beforeEl);
+  } else {
+    area.appendChild(sep);
+  }
 }
 
 function sysMsg(text) {
@@ -963,25 +967,24 @@ function renderMessage(msgData, msgId, isNew) {
     const line = document.createElement('div');
     line.className = 'msg-line';
     line.id = 'msg-' + msgId;
+    line._msgTs = msgData.timestamp;
     line.innerHTML = html;
-    // Sisesta õigesse kohta (timestamp järgi) et vältida topeldust
+    // Sisesta õigesse kohta (timestamp järgi)
     let inserted = false;
     const allLines = area.querySelectorAll('.msg-line');
     for (const el of allLines) {
-      const elId = el.id.replace('msg-', '');
-      const elMsg = el._msgTs;
-      if (elMsg && msgData.timestamp && elMsg > msgData.timestamp) {
+      if (el._msgTs && msgData.timestamp && el._msgTs > msgData.timestamp) {
+        maybeInsertDaySeparator(area, msgData.timestamp, el);
         area.insertBefore(line, el);
         inserted = true;
         break;
       }
     }
     if (!inserted) {
-      maybeInsertDaySeparator(area, msgData.timestamp);
+      maybeInsertDaySeparator(area, msgData.timestamp, null);
       area.appendChild(line);
       if (isNew) area.scrollTop = area.scrollHeight;
     }
-    line._msgTs = msgData.timestamp;
   }
 }
 
@@ -1061,12 +1064,22 @@ function listenMessages() {
     const data = snapshot.val();
     if (!data) { sysMsg('[ Tere tulemast. ]'); historyLoaded = true; return; }
 
-    // Eemalda DOM-ist sõnumid, mida Firebase-is enam pole
     const area = document.getElementById('messages-area');
+
+    // Eemalda DOM-ist sõnumid, mida Firebase-is enam pole
     area.querySelectorAll('.msg-line').forEach(el => {
       const id = el.id.replace('msg-', '');
       if (!data[id]) el.remove();
     });
+
+    // Kontrolli kas on uusi sõnumeid, mida DOM-is pole
+    const hasNewMsgs = Object.keys(data).some(id => !document.getElementById('msg-' + id));
+
+    if (hasNewMsgs) {
+      // Uued sõnumid — lähtesta separaatorid ja renderdab uuesti
+      lastRenderedDay = null;
+      area.querySelectorAll('.day-separator').forEach(el => el.remove());
+    }
 
     Object.entries(data).forEach(([id, msg]) => renderMessage(msg, id, historyLoaded));
     historyLoaded = true;
@@ -1182,6 +1195,10 @@ async function initFCM() {
   if (swReady) return;
   swReady = true;
   try {
+    if (!('serviceWorker' in navigator)) {
+      swReady = false;
+      return;
+    }
     swReg = await navigator.serviceWorker.register('./firebase-messaging-sw.js');
     await navigator.serviceWorker.ready;
     const token = await getToken(getMessaging(), { vapidKey: VAPID_KEY, serviceWorkerRegistration: swReg });
@@ -1422,6 +1439,10 @@ document.getElementById('name-picker-search').addEventListener('input', (e) => {
   renderPickerList(e.target.value);
 });
 
+document.getElementById('messages-area').addEventListener('click', (e) => {
+  if (e.target.closest('[data-namepicker]')) openNamePicker();
+});
+
 document.getElementById('name-picker-overlay').addEventListener('click', (e) => {
   if (e.target === document.getElementById('name-picker-overlay')) closeNamePicker();
 });
@@ -1437,10 +1458,10 @@ document.addEventListener('keydown', (e) => {
 // ════════════════════════════════════════════════════
 
 function processMessageText(text, msgId) {
-  const pattern = /\bsiit\b/gi;
-  if (!pattern.test(text)) return escapeHtml(text);
-  return escapeHtml(text).replace(/\bsiit\b/gi,
-    `<span class="name-picker-trigger" onclick="openNamePicker()">siit</span>`
+  const escaped = escapeHtml(text);
+  if (!/\bsiit\b/i.test(escaped)) return escaped;
+  return escaped.replace(/\bsiit\b/gi,
+    `<span class="name-picker-trigger" data-namepicker="1">siit</span>`
   );
 }
 
