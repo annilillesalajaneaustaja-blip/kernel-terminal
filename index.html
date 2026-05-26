@@ -905,12 +905,11 @@ function renderMessage(msgData, msgId, isNew) {
   const isAustaja = msgData.user === 'Austaja';
   const userClass = isAustaja ? 'msg-user-admin' : 'msg-user-annilill';
 
-  // Seen — märgi loetud kui vastaspool näeb sõnumit (mõlemat pidi)
+  // Seen — märgi loetud ainult esimest korda (kui element polnud veel DOM-is)
   const sentByOther = msgData.user !== currentUser;
-  if (sentByOther && !msgData.seen) {
+  if (sentByOther && !msgData.seen && !existing) {
     update(ref(db, 'messages/' + msgId), { seen: true });
-    // Teavita saatjat ainult esimest korda (kui element polnud veel DOM-is)
-    if (!existing && WORKER_URL && !WORKER_URL.includes('SINUNIMI')) {
+    if (WORKER_URL && !WORKER_URL.includes('SINUNIMI')) {
       const url = WORKER_URL.startsWith('http') ? WORKER_URL : `https://${WORKER_URL}`;
       fetch(`${url}/notify`, {
         method: 'POST', mode: 'cors',
