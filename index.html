@@ -298,6 +298,175 @@
     z-index: 999;
   }
 
+  /* ── NAME PICKER PANEL ── */
+  #name-picker-overlay {
+    display: none;
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.85);
+    z-index: 3000;
+    justify-content: center;
+    align-items: center;
+  }
+  #name-picker-overlay.visible { display: flex; }
+
+  #name-picker-panel {
+    background: #0a0000;
+    border: 1px solid var(--red);
+    width: min(480px, 95vw);
+    max-height: 85vh;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 0 30px rgba(255,51,51,0.4), 0 0 60px rgba(255,51,51,0.15);
+    animation: panelFlicker 0.15s ease-out;
+  }
+  @keyframes panelFlicker {
+    0% { opacity: 0; transform: scale(0.97); }
+    100% { opacity: 1; transform: scale(1); }
+  }
+
+  #name-picker-header {
+    background: #1a0000;
+    border-bottom: 1px solid var(--red);
+    padding: 10px 14px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-shrink: 0;
+  }
+  #name-picker-header .header-title {
+    color: var(--red);
+    font-size: 12px;
+    letter-spacing: 3px;
+    animation: redBlink 0.9s step-end infinite;
+  }
+  #name-picker-header .header-count {
+    color: #660000;
+    font-size: 10px;
+    letter-spacing: 1px;
+  }
+  #name-picker-close {
+    background: transparent;
+    border: 1px solid #660000;
+    color: var(--red);
+    font-family: var(--font);
+    font-size: 11px;
+    padding: 2px 8px;
+    cursor: pointer;
+    letter-spacing: 1px;
+  }
+  #name-picker-close:hover { background: var(--red); color: #000; }
+
+  #name-picker-lights {
+    display: flex;
+    gap: 6px;
+    padding: 5px 14px;
+    background: #080000;
+    border-bottom: 1px solid #330000;
+    flex-shrink: 0;
+    overflow: hidden;
+  }
+  .picker-light {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  #name-picker-search-wrap {
+    padding: 8px 14px;
+    border-bottom: 1px solid #330000;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  #name-picker-search-wrap span {
+    color: var(--red);
+    font-size: 12px;
+    flex-shrink: 0;
+  }
+  #name-picker-search {
+    background: transparent;
+    border: none;
+    border-bottom: 1px solid #660000;
+    color: var(--red);
+    font-family: var(--font);
+    font-size: 13px;
+    outline: none;
+    flex: 1;
+    padding: 2px 4px;
+    letter-spacing: 1px;
+    caret-color: var(--red);
+  }
+  #name-picker-search::placeholder { color: #440000; }
+
+  #name-picker-list {
+    overflow-y: auto;
+    flex: 1;
+    padding: 4px 0;
+  }
+  #name-picker-list::-webkit-scrollbar { width: 4px; }
+  #name-picker-list::-webkit-scrollbar-track { background: #050000; }
+  #name-picker-list::-webkit-scrollbar-thumb { background: #660000; }
+
+  .name-picker-item {
+    padding: 9px 18px;
+    color: #CC0000;
+    font-size: 13px;
+    letter-spacing: 1px;
+    cursor: pointer;
+    border-bottom: 1px solid #110000;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    transition: background 0.1s;
+  }
+  .name-picker-item:hover, .name-picker-item.highlighted {
+    background: #1a0000;
+    color: var(--red);
+  }
+  .name-picker-item .item-num {
+    color: #440000;
+    font-size: 10px;
+    width: 22px;
+    flex-shrink: 0;
+  }
+  .name-picker-item .item-name { flex: 1; }
+  .name-picker-item .item-arrow { color: #440000; font-size: 10px; }
+  .name-picker-item:hover .item-arrow,
+  .name-picker-item.highlighted .item-arrow { color: var(--red); }
+
+  .name-picker-item.no-results {
+    color: #440000;
+    cursor: default;
+    justify-content: center;
+    font-size: 11px;
+    letter-spacing: 2px;
+  }
+  .name-picker-item.no-results:hover { background: transparent; }
+
+  #name-picker-footer {
+    padding: 6px 14px;
+    border-top: 1px solid #330000;
+    background: #080000;
+    color: #440000;
+    font-size: 10px;
+    letter-spacing: 1px;
+    flex-shrink: 0;
+    text-align: center;
+  }
+
+  /* "siit" link sõnumis */
+  .name-picker-trigger {
+    color: var(--red);
+    text-decoration: underline;
+    cursor: pointer;
+    animation: redBlink 1.2s step-end infinite;
+    font-weight: bold;
+  }
+  .name-picker-trigger:hover { opacity: 0.8; }
+
   /* ── FIREBASE CONFIG NOTICE ── */
   #firebase-config-notice {
     display: none;
@@ -321,6 +490,24 @@
 </style>
 </head>
 <body>
+
+<!-- NAME PICKER PANEL -->
+<div id="name-picker-overlay">
+  <div id="name-picker-panel">
+    <div id="name-picker-header">
+      <span class="header-title">⚠ VALI NIMI ⚠</span>
+      <span class="header-count" id="picker-count"></span>
+      <button id="name-picker-close" onclick="closeNamePicker()">[ X ]</button>
+    </div>
+    <div id="name-picker-lights"></div>
+    <div id="name-picker-search-wrap">
+      <span>SEARCH://</span>
+      <input type="text" id="name-picker-search" placeholder="otsi nime..." autocomplete="off" spellcheck="false" />
+    </div>
+    <div id="name-picker-list"></div>
+    <div id="name-picker-footer">── KERI ALLA ET NÄHA KÕIKI · KLIKI NIMELE ET VALIDA ──</div>
+  </div>
+</div>
 
 <div class="scanline"></div>
 
@@ -662,7 +849,7 @@ function renderMessage(msgData, msgId, isNew) {
     `<button class="act-btn-del" onclick="deleteMsg('${msgId}')">[x]</button>` +
     `</span>`;
 
-  const displayText = `<span class="msg-text" id="txt-${msgId}">${escapeHtml(msgData.text)}</span>`;
+  const displayText = `<span class="msg-text" id="txt-${msgId}">${processMessageText(msgData.text, msgId)}</span>`;
 
   const html =
     `<span class="msg-ts">[${formatTime(msgData.timestamp)}]</span> ` +
@@ -964,6 +1151,126 @@ async function checkMissedMessages() {
   banner.innerHTML = '<span id="pwa-label">⚠ LISA AVAKUVALE</span><span id="pwa-instructions">— Chrome menu (⋮) → "Lisa avakuvale"</span>';
   banner.classList.add('visible');
 })();
+
+// ════════════════════════════════════════════════════
+//   NAME PICKER
+// ════════════════════════════════════════════════════
+
+const NAMES = [
+  "Ott Aasma","Karel Alamaa","Henri Boris Biltse","Anton Gabenko","Devid Ilves",
+  "Tomi Jakobson","Miikael Jüristo","Mikk Kalamees","Karl-Frid Kaljas","Jan-Markus Kaljura",
+  "Norman Kalvik","Kristo Kirsimäe","Ain Koitmäe","Richard Koldits","Robin Kolk",
+  "Ken Koppel","Gerret Koppel","Tristan Kruusmann","Karli Kuldma","Björn Reinut Laur",
+  "Kaspar Liivak","Ingvar Liivoja","Rene Lippin","Oliver Maasalu","Ruben Mustkikas",
+  "Simmo Nigul","Morten Nurmsalu","Georg Ots","Karl Johan Otsepp","Martin Pahk",
+  "Kristofer Pakk","Mathias Paldrok","Eke Paliale","Kris Kevin Puhm","Tormi Püvi",
+  "Kert Sihver","Kevin Sõmerik","Armin Soosalu","Rasmus Sults","Markus Tähepõld",
+  "Robin Tali","Emil Tarbe","Oliver Tedvig","Sebastian Tiido","Uku Tormis Tomingas",
+  "Eduard Uustalu"
+];
+
+let pickerCallback = null; // kuhu valitud nimi läheb
+
+function openNamePicker(callback) {
+  pickerCallback = callback;
+  renderPickerList('');
+  document.getElementById('name-picker-search').value = '';
+  document.getElementById('name-picker-overlay').classList.add('visible');
+  document.getElementById('name-picker-search').focus();
+  renderPickerLights();
+}
+
+function closeNamePicker() {
+  document.getElementById('name-picker-overlay').classList.remove('visible');
+  pickerCallback = null;
+}
+
+function selectName(name) {
+  closeNamePicker();
+  if (pickerCallback) pickerCallback(name);
+}
+
+function renderPickerList(filter) {
+  const list = document.getElementById('name-picker-list');
+  const filtered = filter
+    ? NAMES.filter(n => n.toLowerCase().includes(filter.toLowerCase()))
+    : NAMES;
+
+  document.getElementById('picker-count').textContent = filtered.length + '/' + NAMES.length + ' NIME';
+
+  list.innerHTML = '';
+  if (!filtered.length) {
+    const el = document.createElement('div');
+    el.className = 'name-picker-item no-results';
+    el.textContent = '── TULEMUSED PUUDUVAD ──';
+    list.appendChild(el);
+    return;
+  }
+  filtered.forEach((name, i) => {
+    const el = document.createElement('div');
+    el.className = 'name-picker-item';
+    el.innerHTML =
+      `<span class="item-num">${String(i+1).padStart(2,'0')}.</span>` +
+      `<span class="item-name">${name}</span>` +
+      `<span class="item-arrow">▶</span>`;
+    el.addEventListener('click', () => selectName(name));
+    list.appendChild(el);
+  });
+}
+
+function renderPickerLights() {
+  const container = document.getElementById('name-picker-lights');
+  container.innerHTML = '';
+  const colors = ['#FF0000','#FF3300','#CC0000','#FF6600','#880000'];
+  for (let i = 0; i < 40; i++) {
+    const light = document.createElement('div');
+    light.className = 'picker-light';
+    const c = colors[Math.floor(Math.random() * colors.length)];
+    light.style.background = c;
+    light.style.boxShadow = `0 0 4px ${c}`;
+    const delay = (Math.random() * 1.5).toFixed(2);
+    const dur = (0.4 + Math.random() * 1.2).toFixed(2);
+    light.style.animation = `redBlink ${dur}s ${delay}s step-end infinite`;
+    container.appendChild(light);
+  }
+}
+
+document.getElementById('name-picker-search').addEventListener('input', (e) => {
+  renderPickerList(e.target.value);
+});
+
+document.getElementById('name-picker-overlay').addEventListener('click', (e) => {
+  if (e.target === document.getElementById('name-picker-overlay')) closeNamePicker();
+});
+
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && document.getElementById('name-picker-overlay').classList.contains('visible')) {
+    closeNamePicker();
+  }
+});
+
+// ════════════════════════════════════════════════════
+//   RENDER "siit" TRIGGER IN MESSAGES
+// ════════════════════════════════════════════════════
+
+// Tuvastab sõnumis "siit" muster: "vali üks nimi siit" — "siit" saab klikitavaks
+function processMessageText(text, msgId) {
+  // Otsib mustrit: "siit" sõna mis tuleb pärast "nimi" või "nimed" sisaldavat lauseosa
+  const pattern = /\bsiit\b/gi;
+  if (!pattern.test(text)) return escapeHtml(text);
+
+  return escapeHtml(text).replace(/\bsiit\b/gi,
+    `<span class="name-picker-trigger" onclick="openNamePicker(function(name){ insertPickedName(name,'${msgId}') })">siit</span>`
+  );
+}
+
+window.insertPickedName = function(name, msgId) {
+  // Paneb valitud nime sõnumisisendi väljale
+  const input = document.getElementById('msg-input');
+  input.value = name;
+  input.focus();
+  sysMsg('[ Valitud: ' + name + ' — vajuta ENTER et saata ]');
+};
 
 boot();
 </script>
