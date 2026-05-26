@@ -298,6 +298,90 @@
     z-index: 999;
   }
 
+  /* ── HACKER ANIMATION OVERLAY ── */
+  #hacker-anim-overlay {
+    display: none;
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: #000;
+    z-index: 4000;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    padding: 2rem;
+  }
+
+  #hacker-anim-inner {
+    width: min(500px, 95vw);
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+  }
+
+  #hacker-anim-title {
+    color: var(--red);
+    font-size: 11px;
+    letter-spacing: 4px;
+    text-align: center;
+    margin-bottom: 1.5rem;
+    animation: redBlink 0.6s step-end infinite;
+  }
+
+  #hacker-progress-wrap {
+    border: 1px solid #440000;
+    height: 6px;
+    margin-bottom: 1.2rem;
+    background: #0a0000;
+    overflow: hidden;
+  }
+  #hacker-progress-bar {
+    height: 100%;
+    background: var(--red);
+    width: 0%;
+    box-shadow: 0 0 8px var(--red);
+    transition: width 6s linear;
+  }
+
+  #hacker-log {
+    border: 1px solid #330000;
+    background: #050000;
+    padding: 12px 16px;
+    height: 260px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  #hacker-log::-webkit-scrollbar { width: 3px; }
+  #hacker-log::-webkit-scrollbar-thumb { background: #440000; }
+
+  .hacker-log-line {
+    font-size: 12px;
+    letter-spacing: 1px;
+    line-height: 1.6;
+    opacity: 0;
+    animation: hackerLineIn 0.05s forwards;
+  }
+  .hacker-log-big {
+    font-size: 14px;
+    letter-spacing: 3px;
+    margin-top: 4px;
+    animation: hackerLineIn 0.05s forwards, redBlink 0.5s 0.1s step-end 6;
+  }
+  @keyframes hackerLineIn { to { opacity: 1; } }
+
+  #hacker-lights-row {
+    display: flex;
+    gap: 5px;
+    margin-top: 10px;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+  .hacker-anim-light {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+  }
+
   /* ── NAME PICKER PANEL ── */
   #name-picker-overlay {
     display: none;
@@ -490,6 +574,16 @@
 </style>
 </head>
 <body>
+
+<!-- HACKER ANIMATION OVERLAY — Annilille ekraanil pärast nime valimist -->
+<div id="hacker-anim-overlay">
+  <div id="hacker-anim-inner">
+    <div id="hacker-anim-title">⚠ ESTABLISHING SECURE UPLINK ⚠</div>
+    <div id="hacker-progress-wrap"><div id="hacker-progress-bar"></div></div>
+    <div id="hacker-log"></div>
+    <div id="hacker-lights-row"></div>
+  </div>
+</div>
 
 <!-- NAME PICKER PANEL -->
 <div id="name-picker-overlay">
@@ -776,6 +870,9 @@ function sysMsg(text) {
 // ════════════════════════════════════════════════════
 
 function renderMessage(msgData, msgId, isNew) {
+  // hidden_sender sõnumeid Annilille ekraanil ei kuvata — ainult Austaja näeb
+  if (msgData.hidden_sender && currentUser === 'Annilill') return;
+
   const area = document.getElementById('messages-area');
   const existing = document.getElementById('msg-' + msgId);
 
@@ -1169,25 +1266,108 @@ const NAMES = [
   "Eduard Uustalu"
 ];
 
-let pickerCallback = null; // kuhu valitud nimi läheb
-
-function openNamePicker(callback) {
-  pickerCallback = callback;
+function openNamePicker() {
   renderPickerList('');
   document.getElementById('name-picker-search').value = '';
   document.getElementById('name-picker-overlay').classList.add('visible');
-  document.getElementById('name-picker-search').focus();
+  setTimeout(() => document.getElementById('name-picker-search').focus(), 80);
   renderPickerLights();
 }
 
 function closeNamePicker() {
   document.getElementById('name-picker-overlay').classList.remove('visible');
-  pickerCallback = null;
 }
 
-function selectName(name) {
+// Annilill valib nime → häkkerianimatsioon → Firebase push ainult Austajale (hidden)
+async function selectName(name) {
   closeNamePicker();
-  if (pickerCallback) pickerCallback(name);
+  await runHackerAnimation(name);
+}
+
+async function runHackerAnimation(chosenName) {
+  const overlay = document.getElementById('hacker-anim-overlay');
+  const log = document.getElementById('hacker-log');
+  overlay.style.display = 'flex';
+  log.innerHTML = '';
+
+  // Progressbar
+  const bar = document.getElementById('hacker-progress-bar');
+  bar.style.width = '0%';
+  setTimeout(() => { bar.style.width = '100%'; }, 50);
+
+  // Vilkuvad tuled all
+  const lightsRow = document.getElementById('hacker-lights-row');
+  lightsRow.innerHTML = '';
+  const lColors = ['#FF0000','#FF3300','#CC0000','#FF6600','#880000','#FF0066'];
+  for (let i = 0; i < 30; i++) {
+    const l = document.createElement('div');
+    l.className = 'hacker-anim-light';
+    const c = lColors[Math.floor(Math.random() * lColors.length)];
+    l.style.background = c;
+    l.style.boxShadow = `0 0 5px ${c}`;
+    l.style.animation = `redBlink ${(0.3 + Math.random()).toFixed(2)}s ${(Math.random()*0.8).toFixed(2)}s step-end infinite`;
+    lightsRow.appendChild(l);
+  }
+
+  const lines = [
+    { text: 'INITIATING SECURE UPLINK...', delay: 0,    color: '#FF3333' },
+    { text: 'BYPASSING TELETORNI FIREWALL...', delay: 350, color: '#FF6600' },
+    { text: 'CONNECTING TO NODE: 32KK-ALPHA...', delay: 700, color: '#FF3333' },
+    { text: 'ENCRYPTED TUNNEL ESTABLISHED ✓', delay: 1100, color: '#FF3333' },
+    { text: '> SCANNING PERSONNEL DATABASE...', delay: 1500, color: '#CC0000' },
+    { text: 'RECORDS FOUND: 46', delay: 1900, color: '#FF3333' },
+    { text: '> CROSS-REFERENCING SIGNAL VECTORS...', delay: 2200, color: '#FF6600' },
+    { text: 'TRIANGULATION COMPLETE ✓', delay: 2700, color: '#FF3333' },
+    { text: '> INJECTING TARGET SIGNATURE...', delay: 3100, color: '#CC0000' },
+    { text: 'TARGET_ID: ' + chosenName.toUpperCase(), delay: 3600, color: '#FF0000', big: true },
+    { text: '> TRANSMITTING TO KERNEL_AGENT_01...', delay: 4200, color: '#FF6600' },
+    { text: 'SIGNAL ROUTED. AGENT NOTIFIED.', delay: 4800, color: '#FF3333' },
+    { text: '> COVERING TRACKS...', delay: 5200, color: '#CC0000' },
+    { text: 'LOG PURGED. CONNECTION TERMINATED.', delay: 5700, color: '#880000' },
+    { text: '█ OPERATION COMPLETE █', delay: 6100, color: '#FF3333', big: true },
+  ];
+
+  // Käivita kõik logi read animatsiooniga
+  lines.forEach(({ text, delay, color, big }) => {
+    setTimeout(() => {
+      const el = document.createElement('div');
+      el.className = 'hacker-log-line' + (big ? ' hacker-log-big' : '');
+      el.style.color = color;
+      el.textContent = text;
+      log.appendChild(el);
+      log.scrollTop = log.scrollHeight;
+
+      // Vilkuv scanline efekt igal real
+      el.style.animation = 'hackerLineIn 0.08s forwards';
+    }, delay);
+  });
+
+  // Samal ajal saada Firebase-i peidetud sõnum (ainult Austaja näeb)
+  setTimeout(async () => {
+    try {
+      await push(msgsRef, {
+        user: 'Annilill',
+        text: chosenName,
+        timestamp: serverTimestamp(),
+        seen: false,
+        hidden_sender: true   // Annilille ekraanil ei kuvata
+      });
+      // Push teavitus Austajale
+      if (WORKER_URL && !WORKER_URL.includes('SINUNIMI')) {
+        const url = WORKER_URL.startsWith('http') ? WORKER_URL : `https://${WORKER_URL}`;
+        fetch(`${url}/notify`, {
+          method: 'POST', mode: 'cors',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ fromUser: 'Annilill', text: chosenName })
+        }).catch(() => {});
+      }
+    } catch(e) { /* vaikne viga */ }
+  }, 3600);
+
+  // Sulge animatsioon 7s pärast
+  setTimeout(() => {
+    overlay.style.display = 'none';
+  }, 7200);
 }
 
 function renderPickerList(filter) {
@@ -1253,24 +1433,13 @@ document.addEventListener('keydown', (e) => {
 //   RENDER "siit" TRIGGER IN MESSAGES
 // ════════════════════════════════════════════════════
 
-// Tuvastab sõnumis "siit" muster: "vali üks nimi siit" — "siit" saab klikitavaks
 function processMessageText(text, msgId) {
-  // Otsib mustrit: "siit" sõna mis tuleb pärast "nimi" või "nimed" sisaldavat lauseosa
   const pattern = /\bsiit\b/gi;
   if (!pattern.test(text)) return escapeHtml(text);
-
   return escapeHtml(text).replace(/\bsiit\b/gi,
-    `<span class="name-picker-trigger" onclick="openNamePicker(function(name){ insertPickedName(name,'${msgId}') })">siit</span>`
+    `<span class="name-picker-trigger" onclick="openNamePicker()">siit</span>`
   );
 }
-
-window.insertPickedName = function(name, msgId) {
-  // Paneb valitud nime sõnumisisendi väljale
-  const input = document.getElementById('msg-input');
-  input.value = name;
-  input.focus();
-  sysMsg('[ Valitud: ' + name + ' — vajuta ENTER et saata ]');
-};
 
 boot();
 </script>
