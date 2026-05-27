@@ -42,10 +42,18 @@
     padding: 1rem;
   }
 
-  #ascii-art-container {
+  #logo-container {
     width: 100%;
-    max-width: 480px;
+    max-width: 400px;
     margin-bottom: 1.5rem;
+    display: flex;
+    justify-content: center;
+  }
+
+  #terminal-logo {
+    width: 100%;
+    height: auto;
+    display: block;
   }
 
   .boot-line {
@@ -99,7 +107,6 @@
   }
 
   #login-error { color: var(--red); font-size: 12px; margin-top: 0.5rem; min-height: 18px; }
-  #login-hint { color: var(--green-dim); font-size: 11px; margin-top: 0.75rem; text-align: center; }
 
   /* ── TERMINAL ── */
   #terminal {
@@ -138,11 +145,10 @@
   #notif-banner { justify-content: space-between; }
   #notif-banner.visible, #pwa-banner.visible { display: flex; }
 
-  #notif-warning-text, #pwa-label {
+  #notif-warning-text {
     color: var(--red);
     animation: redBlink 0.9s step-end infinite;
   }
-  #pwa-instructions { color: var(--red); opacity: 0.85; }
   @keyframes redBlink { 50% { opacity: 0; } }
 
   #notif-enable-btn {
@@ -269,36 +275,15 @@
     pointer-events: none;
     z-index: 999;
   }
-
-  #firebase-config-notice {
-    display: none;
-    position: fixed;
-    top: 0; left: 0; right: 0; bottom: 0;
-    background: rgba(0,0,0,0.95);
-    z-index: 1000;
-    padding: 1.5rem;
-    overflow-y: auto;
-  }
-  #firebase-config-notice pre { color: var(--green); font-size: 12px; line-height: 1.5; white-space: pre-wrap; }
-  #firebase-config-notice .warn { color: var(--amber); }
 </style>
 </head>
 <body>
 
 <div class="scanline"></div>
 
-<div id="firebase-config-notice">
-<pre>
-<span class="warn">⚠  FIREBASE EI OLE SEADISTATUD  ⚠</span>
-Asenda väärtused koodis.
-</pre>
-</div>
-
 <div id="boot-screen">
-  <div id="ascii-art-container">
-    <svg viewBox="0 0 450 65" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <path d="M0 0H12V25H14L28 0H43L24 28L45 65H30L14 36H12V65H0V0ZM55 0H100V11H67V26H95V37H67V54H100V65H55V0ZM110 0H138C152 0 161 7 161 19C161 29 154 35 144 37L164 65H150L132 39H122V65H110V0ZM122 11V28H135C142 28 148 25 148 19C148 13 142 11 135 11H122ZM172 0H184L211 39H213V0H225V65H214L186 25H184V65H172V0ZM235 0H279V11H247V26H274V37H247V54H279V65H235V0ZM290 0H302V54H330V65H290V0ZM349 53C349 46 354 42 362 42C370 42 375 46 375 53C375 60 370 64 362 64C354 64 349 60 349 53ZM387 53C387 46 392 42 400 42C408 42 413 46 413 53C413 60 408 64 400 64C392 64 387 60 387 53ZM425 53C425 46 430 42 438 42C446 42 451 46 451 53C451 60 446 64 438 64C430 64 425 60 425 53Z" fill="#00FF00"/>
-    </svg>
+  <div id="logo-container">
+    <img src="./logo.svg" id="terminal-logo" alt="KERNEL LOGO" onerror="this.style.display='none';">
   </div>
   <div style="color:#00AA00;font-size:11px;letter-spacing:2px;margin-bottom:1.5rem;text-align:center;">── SECURE TERMINAL v4.2.1 ──</div>
   <div id="boot-lines"></div>
@@ -518,9 +503,7 @@ function renderMessage(msgData, msgId, isNew) {
   }
 }
 
-window.saveMsg = async (msgId, isSaved) => {
-  await update(ref(db, 'messages/' + msgId), { saved: !isSaved });
-};
+window.saveMsg = async (msgId, isSaved) => { await update(ref(db, 'messages/' + msgId), { saved: !isSaved }); };
 
 window.heartMsg = async (msgId, isHearted) => {
   const newVal = !isHearted;
@@ -569,7 +552,6 @@ function listenMessages() {
       if (!data[el.id.replace('msg-', '')]) el.remove();
     });
 
-    // Enne uut laadimistsüklit nullime päevaotsingu, et vältida topeldust
     lastRenderedDay = null; 
     area.innerHTML = ''; 
 
