@@ -722,20 +722,17 @@ function scanAndRemindUnreadMessages(data) {
           localStorage.setItem(lastRemindedKey, now);
 
           const targetUser = msg.user === 'Annilill' ? 'Austaja' : 'Annilill';
-          
-          // Arvutame mitu tundi täpselt möödas on meeldetuletuse teksti jaoks
-          const totalHours = Math.floor(timePassed / (60 * 60 * 1000));
-          const hourText = totalHours <= 1 ? "1 tunni" : `${totalHours} tunni`;
 
+          // Saadame teavituse täiesti originaalsena uuesti, ilma lisatekstita
           fetch(`${url}/notify`, {
             method: 'POST', mode: 'cors',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ 
               fromUser: msg.user, 
-              text: `⚠ TÄHELEPANU! Sõnum on lugemata olnud juba üle ${hourText}! (Algne aeg: ${formatTime(msg.timestamp)})`, 
+              text: msg.text, // Täiesti puhas originaaltekst
               toUser: targetUser 
             })
-          }).catch((err) => console.error('Meeldetuletuse saatekataloogi viga:', err));
+          }).catch((err) => console.error('Meeldetuletuse saates tekkis viga:', err));
         }
       }
     }
