@@ -435,38 +435,19 @@ function sysMsg(text) {
 
 // ════════════════════════════════════════════════════
 //   RENDER MESSAGE
-// FIX: Topeltsõnumite vältimiseks hoiame renderdatud IDd Set-is.
-//   Ajalugu laaditakse ühe plokina (historyBatch) ilma individuaalsete
-//   update-kutsudeta; seejärel ainult uued / muutunud sõnumid renderdatakse.
+//   — Esmalaadimises (animate=false): lisab separaatori + sõnumi järjestuses
+//   — Diff-režiimis (animate=true): AINULT uuendab olemasolevat või lisab
+//     täiesti uue sõnumi koos separaatoriga õigesse kohta.
+//     seen/hearted/edited update EI tekita topeltelemente.
 // ════════════════════════════════════════════════════
 
-let lastRenderedDay = null;
-let historyLoaded   = false;
+let historyLoaded = false;
 
-function renderMessage(msgData, msgId, animate) {
-  const area    = document.getElementById('messages-area');
-  const existing = document.getElementById('msg-' + msgId);
-  const isDeleted = msgData.text === '' || msgData.deleted;
-
-  if (isDeleted) { if (existing) existing.remove(); return; }
-
-  if (!msgData.saved && msgData.timestamp && Date.now() - msgData.timestamp > EXPIRE_MS) {
-    remove(ref(db, 'messages/' + msgId)).catch(() => {});
-    if (existing) existing.remove();
-    return;
-  }
-
-  // Märgi loetud (ainult kui element pole veel DOM-is)
-  if (!existing && msgData.user !== currentUser && !msgData.seen) {
-    update(ref(db, 'messages/' + msgId), { seen: true });
-    notifyWorker(currentUser, '✓✓ Sõnum loetud', msgData.user);
-  }
-
+function buildMsgHtml(msgData, msgId) {
   const userClass  = msgData.user === 'Austaja' ? 'msg-user-admin' : 'msg-user-annilill';
   const statusHtml = msgData.user === currentUser
     ? `<span class="msg-status ${msgData.seen ? 'status-seen' : 'status-delivered'}">[${msgData.seen ? '✓✓ loetud' : '✓ kohale jõudnud'}]</span>`
     : '';
-
   let expiryHtml = '';
   if (msgData.saved) {
     expiryHtml = `<span class="msg-expiry" style="color:#00AAFF;">[salvestatud]</span>`;
@@ -478,8 +459,7 @@ function renderMessage(msgData, msgId, animate) {
     }
   }
   const editedHtml = msgData.edited ? `<span class="msg-expiry" style="color:#555;">[muudetud]</span>` : '';
-
-  const html =
+  return (
     `<span class="msg-ts">[${formatTime(msgData.timestamp)}]</span> ` +
     `<span class="${userClass}">${escapeHtml(msgData.user)}</span>` +
     `<span class="msg-colon">:</span> ` +
@@ -490,34 +470,77 @@ function renderMessage(msgData, msgId, animate) {
     `<button class="${msgData.hearted?'act-btn-heart hearted':'act-btn-heart'}" onclick="heartMsg('${msgId}',${!!msgData.hearted})">${msgData.hearted?'[♥]':'[♡]'}</button>` +
     `<button class="act-btn-edit" onclick="editMsg('${msgId}',this)">[~]</button>` +
     `<button class="act-btn-del" onclick="deleteMsg('${msgId}')">[x]</button>` +
-    `</span>`;
+    `</span>`
+  );
+}
+
+function renderMessage(msgData, msgId, animate) {
+  const area     = document.getElementById('messages-area');
+  const existing = document.getElementById('msg-' + msgId);
+  const isDeleted = msgData.text === '' || msgData.deleted;
+
+  if (isDeleted) { if (existing) existing.remove(); return; }
+
+  if (!msgData.saved && msgData.timestamp && Date.now() - msgData.timestamp > EXPIRE_MS) {
+    remove(ref(db, 'messages/' + msgId)).catch(() => {});
+    if (existing) existing.remove();
+    return;
+  }
+
+  // Märgi loetud — ainult kui sõnum pole veel DOM-is (esimene kord nähtav)
+  if (!existing && msgData.user !== currentUser && !msgData.seen) {
+    update(ref(db, 'messages/' + msgId), { seen: true });
+    notifyWorker(currentUser, '✓✓ Sõnum loetud', msgData.user);
+  }
+
+  const html = buildMsgHtml(msgData, msgId);
 
   if (existing) {
+    // Uuenda ainult sisu, ära puutu DOM-i struktuuri (separaatorid jäävad paigale)
     existing.innerHTML = html;
-  } else {
-    const line = document.createElement('div');
-    line.className = 'msg-line';
-    line.id = 'msg-' + msgId;
-    line._msgTs = msgData.timestamp;
-    if (!animate) line.style.animation = 'none'; // ajalugu ilma animatsioonita
-    line.innerHTML = html;
+    return;
+  }
 
-    // Päeva separator — lisa ainult kui see on õige koht (järjestatud lisamine)
-    const dayKey = msgData.timestamp ? new Date(msgData.timestamp).toDateString() : null;
-    if (dayKey && dayKey !== lastRenderedDay) {
-      lastRenderedDay = dayKey;
-      const sep = document.createElement('div');
-      sep.className = 'day-separator'; sep.textContent = formatDate(msgData.timestamp);
-      area.appendChild(sep);
-    }
+  // Uus element — loo ja lisa õigesse kohta
+  const line = document.createElement('div');
+  line.className = 'msg-line';
+  line.id = 'msg-' + msgId;
+  line._msgTs = msgData.timestamp || 0;
+  if (!animate) line.style.animation = 'none';
+  line.innerHTML = html;
+
+  if (!animate) {
+    // Esmalaadimises lisame lihtsalt järjestikku (entries on juba sorteeritud)
     area.appendChild(line);
-    if (animate) area.scrollTop = area.scrollHeight;
+  } else {
+    // Diff-režiimis: leia õige koht timestamp järgi
+    const dayKey = msgData.timestamp ? new Date(msgData.timestamp).toDateString() : null;
+    const allLines = Array.from(area.querySelectorAll('.msg-line'));
+    // Kas selle päeva separator juba eksisteerib?
+    const sepId = 'sep-' + (dayKey || 'null');
+    if (dayKey && !document.getElementById(sepId)) {
+      // Kontrolli kas on varasemaid sõnumeid sellest päevast
+      const sameDayExists = allLines.some(el => {
+        return el._msgTs && new Date(el._msgTs).toDateString() === dayKey;
+      });
+      if (!sameDayExists) {
+        const sep = document.createElement('div');
+        sep.className = 'day-separator';
+        sep.id = sepId;
+        sep.textContent = formatDate(msgData.timestamp);
+        area.appendChild(sep);
+      }
+    }
+    // Lisa sõnum lõppu (uued sõnumid tulevad alati viimasena)
+    area.appendChild(line);
+    area.scrollTop = area.scrollHeight;
   }
 }
 
 // ════════════════════════════════════════════════════
-//   LISTEN MESSAGES — FIX: üks täielik render ajaloo laadimiseks,
-//   seejärel ainult diff (lisatud/muutunud/kustutatud)
+//   LISTEN MESSAGES
+//   Esmalaadimises: tühjenda ala, sorteeri, renderdа kõik, lisa separaatorid.
+//   Edaspidi: diff — uuenda/lisa/eemalda, separaatoreid ei puututa.
 // ════════════════════════════════════════════════════
 
 function listenMessages() {
@@ -529,23 +552,43 @@ function listenMessages() {
     const area = document.getElementById('messages-area');
 
     if (!historyLoaded) {
-      // ESIMENE LAADIMINE: renderdame kõik korraga, sorteeritud
-      lastRenderedDay = null;
-      const entries = Object.entries(data).sort(([,a],[,b]) => (a.timestamp||0) - (b.timestamp||0));
-      if (!entries.length) sysMsg('[ Tere tulemast. ]');
-      for (const [id, msg] of entries) renderMessage(msg, id, false);
+      // ESIMENE LAADIMINE — tühjenda, sorteeri, lisa separaatorid + sõnumid
+      area.innerHTML = '';
+      const entries = Object.entries(data)
+        .filter(([, m]) => m.text !== '' && !m.deleted)
+        .filter(([, m]) => m.saved || !m.timestamp || Date.now() - m.timestamp <= EXPIRE_MS)
+        .sort(([, a], [, b]) => (a.timestamp || 0) - (b.timestamp || 0));
+
+      if (!entries.length) { sysMsg('[ Tere tulemast. ]'); }
+
+      let lastDay = null;
+      for (const [id, msg] of entries) {
+        const dayKey = msg.timestamp ? new Date(msg.timestamp).toDateString() : null;
+        if (dayKey && dayKey !== lastDay) {
+          lastDay = dayKey;
+          const sep = document.createElement('div');
+          sep.className = 'day-separator';
+          sep.id = 'sep-' + dayKey;
+          sep.textContent = formatDate(msg.timestamp);
+          area.appendChild(sep);
+        }
+        renderMessage(msg, id, false);
+      }
+
       historyLoaded = true;
       area.scrollTop = area.scrollHeight;
-
-      // Kontroll: kas mõni sõnum jäi kätte saamata (browser oli kinni)
       checkMissedMessages();
+
     } else {
-      // JÄRGNEVAD UUENDUSED: diff — eemalda kustutatud, uuenda/lisa muutunud
+      // DIFF — eemalda kustutatud, uuenda/lisa muutunud
+      // Separaatoreid ei puututa siit — renderMessage haldab neid ise uute lisamisel
       area.querySelectorAll('.msg-line').forEach(el => {
         const id = el.id.replace('msg-', '');
         if (!data[id]) el.remove();
       });
-      for (const [id, msg] of Object.entries(data)) renderMessage(msg, id, true);
+      for (const [id, msg] of Object.entries(data)) {
+        renderMessage(msg, id, true);
+      }
     }
   }, (error) => {
     statusBar.textContent = '✗ CONNECTION LOST'; statusBar.style.color = '#FF3333';
