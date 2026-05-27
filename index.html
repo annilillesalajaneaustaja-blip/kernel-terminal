@@ -32,28 +32,32 @@
     overflow: hidden;
   }
 
-  /* ── BOOT SCREEN ── */
+  /* ── BOOT SCREEN & LOGO FIXED ── */
   #boot-screen {
     flex: 1;
     display: flex;
     flex-direction: column;
     justify-content: center;
     align-items: center;
-    padding: 1rem;
+    padding: 1.5rem;
+    width: 100%;
   }
 
   #logo-container {
     width: 100%;
-    max-width: 400px;
+    max-width: 440px;
     margin-bottom: 1.5rem;
     display: flex;
     justify-content: center;
+    padding: 0 10px;
+    color: var(--green); /* SVG fill="currentColor" nopib selle värvi üles */
   }
 
   #terminal-logo {
     width: 100%;
     height: auto;
     display: block;
+    object-fit: contain; /* Lukustab proportsioonid, et read ei uju ega lagune mobiilis */
   }
 
   .boot-line {
@@ -130,7 +134,7 @@
 
   #topbar .user-info { color: var(--amber); }
 
-  /* ── BANNERS ── */
+  /* ── BANNERS FLEXIBLE MOBIILI FIX ── */
   #notif-banner, #pwa-banner {
     display: none;
     background: #0a0000;
@@ -140,7 +144,7 @@
     gap: 10px;
     font-size: 11px;
     letter-spacing: 1px;
-    flex-wrap: wrap;
+    flex-wrap: wrap; /* Lubab tekstil mobiilis reaks murduda, ei uju ekraanilt välja */
   }
   #notif-banner { justify-content: space-between; }
   #notif-banner.visible, #pwa-banner.visible { display: flex; }
@@ -552,6 +556,7 @@ function listenMessages() {
       if (!data[el.id.replace('msg-', '')]) el.remove();
     });
 
+    // See parandab sõnumite ja kuupäevade topeldamise alglaadimisel!
     lastRenderedDay = null; 
     area.innerHTML = ''; 
 
@@ -628,6 +633,7 @@ document.getElementById('notif-enable-btn').addEventListener('click', async () =
   }
 });
 
+// Rangem kontroll — kontrollib reaalselt uusi sõnumeid pärast viimast avamist
 async function checkMissedMessages() {
   const lastSeenKey = 'lastSeen:' + currentUser;
   const lastSeen = parseInt(localStorage.getItem(lastSeenKey) || '0');
