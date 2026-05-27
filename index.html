@@ -33,7 +33,7 @@
     overflow: hidden;
   }
 
-  /* ── BOOT SCREEN & PNG LOGO FIX ── */
+  /* ── BOOT SCREEN & LOGO ── */
   #boot-screen {
     flex: 1;
     display: flex;
@@ -57,13 +57,7 @@
     width: 100%;
     height: auto;
     display: block;
-    object-fit: contain; /* Hoiab ära igasuguse pildi venitamise */
-    
-    /* DIGITAALNE FILTER: Muudab puhta valge PNG pildi 
-       täpselt neoonroheliseks (#00FF00) terminali tooniks. 
-       Töötab lollikindlalt nii arvutis kui telefonis. */
-    filter: matrix(0, 0, 0, 0, 0,  0, 1, 0, 0, 0,  0, 0, 0, 0, 0,  0, 0, 0, 1, 0) 
-            drop-shadow(0 0 2px rgba(0, 255, 0, 0.5));
+    object-fit: contain;
   }
 
   .boot-line {
@@ -593,7 +587,7 @@ function sysMsg(text) {
 }
 
 // ════════════════════════════════════════════════════
-//   RENDER MESSAGE
+//   RENDER MESSAGE (KAITSTUD TOPELDAMISE VASTU)
 // ════════════════════════════════════════════════════
 
 function renderMessage(msgData, msgId, isNew) {
@@ -656,7 +650,7 @@ function renderMessage(msgData, msgId, isNew) {
 
   const actionsHtml = `<span class="msg-actions">` +
     `<button class="${saveClass}" onclick="saveMsg('${msgId}',${!!msgData.saved})">${saveLabel}</button>` +
-    `<button class="${heartClass}" onclick="heartMsg('${msgId}',${!!msgData.hearted})">${heartLabel}</button>` +
+    `<button class="act-btn-heart ${heartClass}" onclick="heartMsg('${msgId}',${!!msgData.hearted})">${heartLabel}</button>` +
     `<button class="act-btn-edit" onclick="editMsg('${msgId}',this)">[~]</button>` +
     `<button class="act-btn-del" onclick="deleteMsg('${msgId}')">[x]</button>` +
     `</span>`;
@@ -672,6 +666,12 @@ function renderMessage(msgData, msgId, isNew) {
   if (existing) {
     existing.innerHTML = html;
   } else {
+    // KAITSEKIHT 1: Igaks juhuks kontrollime uuesti, et sama ID-ga rida ei loodaks uuesti
+    if (document.getElementById('msg-' + msgId)) {
+      document.getElementById('msg-' + msgId).innerHTML = html;
+      return;
+    }
+
     const line = document.createElement('div');
     line.className = 'msg-line';
     line.id = 'msg-' + msgId;
@@ -769,15 +769,36 @@ function listenMessages() {
   let historyLoaded = false;
   onValue(query(msgsRef, limitToLast(200)), (snapshot) => {
     const data = snapshot.val();
-    if (!data) { sysMsg('[ Tere tulemast. ]'); historyLoaded = true; return; }
-
     const area = document.getElementById('messages-area');
+
+    // KAITSEKIHT 2: Kui ajalugu pole veel laetud, tühjendame igaks juhuks kogu HTML konteineri, 
+    // et vältida mälus või renderdamisel tekkivaid "kummitusi".
+    if (!historyLoaded) {
+      area.innerHTML = '';
+      lastRenderedDay = null; 
+    }
+
+    if (!data) { 
+      sysMsg('[ Tere tulemast. ]'); 
+      historyLoaded = true; 
+      return; 
+    }
+
+    // Eemalda DOM-ist sõnumid, mida Firebase-is enam pole
     area.querySelectorAll('.msg-line').forEach(el => {
       const id = el.id.replace('msg-', '');
       if (!data[id]) el.remove();
     });
 
-    Object.entries(data).forEach(([id, msg]) => renderMessage(msg, id, historyLoaded));
+    // Sorteerime saabunud andmed kronoloogiliselt enne renderdamist (KAITSEKIHT 3)
+    const sortedEntries = Object.entries(data).sort((a, b) => {
+      return (a[1].timestamp || 0) - (b[1].timestamp || 0);
+    });
+
+    sortedEntries.forEach(([id, msg]) => {
+      renderMessage(msg, id, historyLoaded);
+    });
+    
     historyLoaded = true;
   }, (error) => {
     statusBar.textContent = '✗ CONNECTION LOST';
