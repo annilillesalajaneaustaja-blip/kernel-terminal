@@ -222,6 +222,7 @@
     padding-top: 6px;
   }
 
+  /* ── SÕNUMI AKSIOONID JA SÜDA ── */
   .act-btn-save, .act-btn-heart, .act-btn-edit, .act-btn-del {
     background: transparent;
     border: none;
@@ -230,12 +231,20 @@
     cursor: pointer;
     padding: 0 3px;
     opacity: 0.5;
+    vertical-align: middle;
   }
   .act-btn-save { color: #00AA00; }
   .act-btn-save:hover, .act-btn-heart:hover, .act-btn-edit:hover, .act-btn-del:hover { opacity: 1; }
   .act-btn-save.saved { color: #00FFFF; opacity: 1; }
-  .act-btn-heart { color: #FF6699; }
+  
+  /* UUENDATUD: Suurem ja silmapaistvam süda */
+  .act-btn-heart { 
+    color: #FF6699; 
+    font-size: 16px; 
+    padding: 0 5px;
+  }
   .act-btn-heart.hearted { color: #FF2266; opacity: 1; }
+  
   .act-btn-edit { color: var(--red); }
   .act-btn-del { color: var(--red); }
 
@@ -434,7 +443,7 @@ const USERS = {
 };
 
 const EXPIRE_MS = 24 * 60 * 60 * 1000;
-const REMINDER_TRIGGER_MS = 1 * 60 * 60 * 1000; // UUENDATUD: 1 tunni reegel (60 minutit)
+const REMINDER_TRIGGER_MS = 1 * 60 * 60 * 1000; 
 const WORKER_URL = 'kernel-push.annilille-salajane-austaja.workers.dev';
 const VAPID_KEY  = 'BHjCejG7QdVqLZsH3LdXXIGDzjR0UruNaRu-sm3pt-nLiQgxb3KYxokcIoTXQAoLoedeLkCErSmPag5-xHMdXQg';
 
@@ -643,7 +652,7 @@ function renderMessage(msgData, msgId, isNew) {
   }
   if (msgData.saved) expiryHtml = `<span class="msg-expiry" style="color:#00AAFF;">[salvestatud]</span>`;
 
-  const editedHtml = msgData.edited ? `<span class="msg-expiry" style="color:#555;">[muudetud]</span>` : '';
+  // MUUDATUS: edited märgistus ja tekst on siit täielikult eemaldatud.
   const saveClass = msgData.saved ? 'act-btn-save saved' : 'act-btn-save';
   const saveLabel = msgData.saved ? '[♦]' : '[♢]';
   const heartClass = msgData.hearted ? 'act-btn-heart hearted' : 'act-btn-heart';
@@ -662,7 +671,7 @@ function renderMessage(msgData, msgId, isNew) {
     `<span class="msg-ts">[${formatTime(msgData.timestamp)}]</span> ` +
     `<span class="${userClass}">${escapeHtml(msgData.user)}</span>` +
     `<span class="msg-colon">:</span> ` +
-    displayText + statusHtml + editedHtml + expiryHtml + actionsHtml;
+    displayText + statusHtml + expiryHtml + actionsHtml;
 
   if (existing) {
     existing.innerHTML = html;
@@ -707,14 +716,10 @@ function scanAndRemindUnreadMessages(data) {
   const url = WORKER_URL.startsWith('http') ? WORKER_URL : `https://${WORKER_URL}`;
 
   Object.entries(data).forEach(([id, msg]) => {
-    // Kontrollime ainult lugemata ja olemasoleva sisuga sõnumeid
     if (msg.timestamp && msg.seen === false && msg.text !== '') {
       const timePassed = now - msg.timestamp;
 
-      // Kui sõnum on seisnud lugemata kauem kui 1 tund (60 minutit)
       if (timePassed >= REMINDER_TRIGGER_MS) {
-        
-        // Kaitsekiht: Ärgu korraks sama sõnumi kohta häiret sagedamini kui kord tunnis
         const lastRemindedKey = 'reminded:' + id;
         const lastRemindedTime = parseInt(localStorage.getItem(lastRemindedKey) || '0');
 
@@ -722,14 +727,14 @@ function scanAndRemindUnreadMessages(data) {
           localStorage.setItem(lastRemindedKey, now);
 
           const targetUser = msg.user === 'Annilill' ? 'Austaja' : 'Annilill';
-
-          // Saadame teavituse täiesti originaalsena uuesti, ilma lisatekstita
+          
+          // MUUDATUS: Teavitus tagasihoidliku väikese tähega "kordusteavitus:" eesliitega
           fetch(`${url}/notify`, {
             method: 'POST', mode: 'cors',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ 
               fromUser: msg.user, 
-              text: msg.text, // Täiesti puhas originaaltekst
+              text: `kordusteavitus: ${msg.text}`, 
               toUser: targetUser 
             })
           }).catch((err) => console.error('Meeldetuletuse saates tekkis viga:', err));
@@ -825,7 +830,6 @@ function listenMessages() {
       return; 
     }
 
-    // Käivitame kontrolli alati andmete laadimisel või uue aktiivsuse saabumisel
     scanAndRemindUnreadMessages(data);
 
     area.querySelectorAll('.msg-line').forEach(el => {
@@ -908,7 +912,7 @@ async function sendMessage(text) {
 // ════════════════════════════════════════════════════
 
 document.getElementById('pass-input').addEventListener('keydown', (e) => {
-  if (e.key === 'Enter') login(e.target.value);
+  if (e.key === 'Enter' && initialized) login(e.target.value);
 });
 
 document.getElementById('msg-input').addEventListener('keydown', async (e) => {
@@ -958,12 +962,7 @@ async function initFCM() {
     const token = await getToken(getMessaging(), { vapidKey: VAPID_KEY, serviceWorkerRegistration: swReg });
     if (!token) throw new Error('FCM token puudub');
 
-    const lockSnap = await get(ref(db, 'settings/lockToken'));
-    if (lockSnap.val() === true) {
-      sysMsg('[ ⚠ Token lukustatud — uut seadet ei registreerita ]');
-      return;
-    }
-
+    // MUUDATUS: "Token lukustatud" teavituse kuvamine ja kontroll täielikult eemaldatud.
     const url = WORKER_URL.startsWith('http') ? WORKER_URL : `https://${WORKER_URL}`;
     const res = await fetch(`${url}/register`, {
       method: 'POST', mode: 'cors',
