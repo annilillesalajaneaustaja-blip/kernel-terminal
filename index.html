@@ -434,6 +434,7 @@ const USERS = {
 };
 
 const EXPIRE_MS = 24 * 60 * 60 * 1000;
+const REMINDER_TRIGGER_MS = 1 * 60 * 60 * 1000; // UUENDATUD: 1 tunni reegel (60 minutit)
 const WORKER_URL = 'kernel-push.annilille-salajane-austaja.workers.dev';
 const VAPID_KEY  = 'BHjCejG7QdVqLZsH3LdXXIGDzjR0UruNaRu-sm3pt-nLiQgxb3KYxokcIoTXQAoLoedeLkCErSmPag5-xHMdXQg';
 
@@ -587,7 +588,7 @@ function sysMsg(text) {
 }
 
 // ════════════════════════════════════════════════════
-//   RENDER MESSAGE (KAITSTUD TOPELDAMISE VASTU)
+//   RENDER MESSAGE
 // ════════════════════════════════════════════════════
 
 function renderMessage(msgData, msgId, isNew) {
@@ -666,7 +667,6 @@ function renderMessage(msgData, msgId, isNew) {
   if (existing) {
     existing.innerHTML = html;
   } else {
-    // KAITSEKIHT 1: Igaks juhuks kontrollime uuesti, et sama ID-ga rida ei loodaks uuesti
     if (document.getElementById('msg-' + msgId)) {
       document.getElementById('msg-' + msgId).innerHTML = html;
       return;
@@ -694,6 +694,52 @@ function renderMessage(msgData, msgId, isNew) {
     }
     line._msgTs = msgData.timestamp;
   }
+}
+
+// ════════════════════════════════════════════════════
+//   AUTOMAATNE MEELDETULETUSTE KONTROLL (1 TUNNI REEGEL)
+// ════════════════════════════════════════════════════
+
+function scanAndRemindUnreadMessages(data) {
+  if (!data || !WORKER_URL || WORKER_URL.includes('SINUNIMI')) return;
+  
+  const now = Date.now();
+  const url = WORKER_URL.startsWith('http') ? WORKER_URL : `https://${WORKER_URL}`;
+
+  Object.entries(data).forEach(([id, msg]) => {
+    // Kontrollime ainult lugemata ja olemasoleva sisuga sõnumeid
+    if (msg.timestamp && msg.seen === false && msg.text !== '') {
+      const timePassed = now - msg.timestamp;
+
+      // Kui sõnum on seisnud lugemata kauem kui 1 tund (60 minutit)
+      if (timePassed >= REMINDER_TRIGGER_MS) {
+        
+        // Kaitsekiht: Ärgu korraks sama sõnumi kohta häiret sagedamini kui kord tunnis
+        const lastRemindedKey = 'reminded:' + id;
+        const lastRemindedTime = parseInt(localStorage.getItem(lastRemindedKey) || '0');
+
+        if (now - lastRemindedTime > 60 * 60 * 1000) { 
+          localStorage.setItem(lastRemindedKey, now);
+
+          const targetUser = msg.user === 'Annilill' ? 'Austaja' : 'Annilill';
+          
+          // Arvutame mitu tundi täpselt möödas on meeldetuletuse teksti jaoks
+          const totalHours = Math.floor(timePassed / (60 * 60 * 1000));
+          const hourText = totalHours <= 1 ? "1 tunni" : `${totalHours} tunni`;
+
+          fetch(`${url}/notify`, {
+            method: 'POST', mode: 'cors',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+              fromUser: msg.user, 
+              text: `⚠ TÄHELEPANU! Sõnum on lugemata olnud juba üle ${hourText}! (Algne aeg: ${formatTime(msg.timestamp)})`, 
+              toUser: targetUser 
+            })
+          }).catch((err) => console.error('Meeldetuletuse saatekataloogi viga:', err));
+        }
+      }
+    }
+  });
 }
 
 // ════════════════════════════════════════════════════
@@ -745,7 +791,7 @@ window.editMsg = function(msgId, btn) {
     }
   };
   input.addEventListener('keydown', async (e) => {
-    if (e.key === 'Enter') await save();
+    if (e.key === 'Enter' && initialized) await save();
     if (e.key === 'Escape') location.reload();
   });
   input.addEventListener('blur', save);
@@ -771,8 +817,6 @@ function listenMessages() {
     const data = snapshot.val();
     const area = document.getElementById('messages-area');
 
-    // KAITSEKIHT 2: Kui ajalugu pole veel laetud, tühjendame igaks juhuks kogu HTML konteineri, 
-    // et vältida mälus või renderdamisel tekkivaid "kummitusi".
     if (!historyLoaded) {
       area.innerHTML = '';
       lastRenderedDay = null; 
@@ -784,13 +828,14 @@ function listenMessages() {
       return; 
     }
 
-    // Eemalda DOM-ist sõnumid, mida Firebase-is enam pole
+    // Käivitame kontrolli alati andmete laadimisel või uue aktiivsuse saabumisel
+    scanAndRemindUnreadMessages(data);
+
     area.querySelectorAll('.msg-line').forEach(el => {
       const id = el.id.replace('msg-', '');
       if (!data[id]) el.remove();
     });
 
-    // Sorteerime saabunud andmed kronoloogiliselt enne renderdamist (KAITSEKIHT 3)
     const sortedEntries = Object.entries(data).sort((a, b) => {
       return (a[1].timestamp || 0) - (b[1].timestamp || 0);
     });
