@@ -962,7 +962,17 @@ async function initFCM() {
     const token = await getToken(getMessaging(), { vapidKey: VAPID_KEY, serviceWorkerRegistration: swReg });
     if (!token) throw new Error('FCM token puudub');
 
-    // MUUDATUS: "Token lukustatud" teavituse kuvamine ja kontroll täielikult eemaldatud.
+    // 🔒 TOKENTI LUKUSTAMISE JA MUUTUMISE KONTROLL
+    const savedTokenKey = 'kernel_saved_token:' + currentUser;
+    const lastRegisteredToken = localStorage.getItem(savedTokenKey);
+
+    if (lastRegisteredToken === token) {
+      // Token on täpselt sama, mis eelmisel korral – ei hakka Workerit ja KV-hoidlat asjata tülitama
+      updateNotifBanner();
+      return;
+    }
+
+    // Kui token on päriselt muutunud või seda pole veel salvestatud, teavitame Workerit
     const url = WORKER_URL.startsWith('http') ? WORKER_URL : `https://${WORKER_URL}`;
     const res = await fetch(`${url}/register`, {
       method: 'POST', mode: 'cors',
@@ -970,6 +980,9 @@ async function initFCM() {
       body: JSON.stringify({ token, user: currentUser })
     });
     if (!res.ok) throw new Error('Worker register failed: ' + res.status);
+    
+    // Salvestame uue tokeni kohalikku mällu luku taha
+    localStorage.setItem(savedTokenKey, token);
     updateNotifBanner();
   } catch(e) {
     swReady = false;
