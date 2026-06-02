@@ -7,7 +7,7 @@
 <meta name="theme-color" content="#00FF00">
 <link rel="icon" type="image/png" href="./ikoon.png">
 <link rel="apple-touch-icon" href="./ikoon.png">
-<title>KERNEL_TERMINAL v4.2.1</title>
+<title>KERNEL_TERMINAL v4.2.2</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
 
@@ -205,18 +205,21 @@
   .msg-ts { color: var(--green-dim); }
   .msg-user-annilill { color: #00DDFF; }
   .msg-user-admin { color: var(--amber); }
-  .msg-colon : color: var(--green-dim); }
+  .msg-colon { color: var(--green-dim); }
   .msg-text { color: var(--green); }
   
   /* Retrostiilis ditherdatud pildi kuva */
   .msg-dithered-img {
     display: block;
-    max-width: 300px;
+    max-width: 260px;
     width: 100%;
     height: auto;
     margin-top: 6px;
     border: 1px solid var(--green-dim);
+    /* KRITILINE: Keelab igasuguse pehmendamise ja hoiab pildi absoluutselt nurgelise ja teravana */
     image-rendering: pixelated;
+    image-rendering: crisp-edges;
+    image-rendering: -moz-crisp-edges;
   }
 
   .msg-status { font-size: 11px; margin-left: 6px; }
@@ -372,36 +375,7 @@
 <div id="firebase-config-notice">
 <pre>
 <span class="warn">⚠  FIREBASE EI OLE SEADISTATUD  ⚠</span>
-
-Leidsime, et firebase config on endiselt vaikeväärtustega.
-Palun järgi allpool olevaid juhiseid:
-
-1. Mine aadressile: <span style="color:#00FFFF">https://console.firebase.google.com</span>
-2. Loo uus projekt (nt "kernel-chat")
-3. Lisa veebirakendus (&lt;/&gt; ikoon)
-4. Kopeeri oma firebaseConfig objekt
-5. Ava see index.html fail tekstiredaktoris
-6. Otsi üles sektsioon "FIREBASE KONFIGURATSIOON" ja asenda vaikeväärtused
-
-Pärast seadistamist lae leht uuesti.
-
-<span class="cmd">const firebaseConfig = {
-  apiKey: "SINU_API_KEY_SIIA",
-  authDomain: "SINU_PROJECT.firebaseapp.com",
-  databaseURL: "https://SINU_PROJECT-default-rtdb.firebasedatabase.app",
-  projectId: "SINU_PROJECT_ID",
-  storageBucket: "SINU_PROJECT.appspot.com",
-  messagingSenderId: "SINU_SENDER_ID",
-  appId: "SINU_APP_ID"
-};</span>
-
-<span class="warn">NB! Realtime Database peab olema lubatud Firebase konsoolis:</span>
-Build → Realtime Database → Create Database → Start in test mode
-
-<button onclick="document.getElementById('firebase-config-notice').style.display='none'"
-  style="margin-top:1.5rem;background:transparent;border:1px solid #00FF00;color:#00FF00;font-family:'Courier New',monospace;font-size:14px;padding:8px 20px;cursor:pointer;letter-spacing:2px;">
-[ SULGE ]
-</button>
+...
 </pre>
 </div>
 
@@ -409,7 +383,7 @@ Build → Realtime Database → Create Database → Start in test mode
   <div id="logo-container">
     <img src="./logo1.png" id="terminal-logo" alt="KERNEL LOGO" onerror="this.style.display='none';">
   </div>
-  <div style="color:#00AA00;font-family:'Courier New',monospace;font-size:12px;letter-spacing:3px;margin-bottom:1.5rem;text-align:center;">── SECURE COMMUNICATION TERMINAL v4.2.1 ──</div>
+  <div style="color:#00AA00;font-family:'Courier New',monospace;font-size:12px;letter-spacing:3px;margin-bottom:1.5rem;text-align:center;">── SECURE COMMUNICATION TERMINAL v4.2.2 ──</div>
 
   <div id="boot-lines"></div>
 
@@ -426,7 +400,7 @@ Build → Realtime Database → Create Database → Start in test mode
 
 <div id="terminal">
   <div id="topbar">
-    <div class="sys-info">KERNEL_TERM 4.2.1 | ENCRYPTED | <span id="clock"></span></div>
+    <div class="sys-info">KERNEL_TERM 4.2.2 | ENCRYPTED | <span id="clock"></span></div>
     <div class="user-info">SESSION: <span id="current-user-label" style="color:var(--amber)"></span></div>
     <div class="sys-info" id="status-bar">● CONNECTING...</div>
   </div>
@@ -567,7 +541,7 @@ function loginAsUser(username) {
   startClock();
   listenMessages();
   listenTyping();
-  bindImageEvents(); // Seome pildivalija sündmused
+  bindImageEvents();
   initialized = true;
 
   updateNotifBanner();
@@ -633,15 +607,44 @@ function sysMsg(text) {
 }
 
 // ════════════════════════════════════════════════════
-//   DITHER ENGINE (FLOYD-STEINBERG RETRO MOOTOR)
+//   COLOR DITHER ENGINE (AUTENTNE 256 VÄRVI + KONTRAST)
 // ════════════════════════════════════════════════════
+
+// Genereerime klassikalise 90ndate 8-bitise "Web-Safe" paleti (6x6x6 värvikuubik + 40 halltooni stabiilsuse jaoks)
+const PALETTE = [];
+for (let r = 0; r < 6; r++) {
+  for (let g = 0; g < 6; g++) {
+    for (let b = 0; b < 6; b++) {
+      PALETTE.push([r * 51, g * 51, b * 51]);
+    }
+  }
+}
+while (PALETTE.length < 256) {
+  let v = Math.round((PALETTE.length - 216) * (255 / 39));
+  PALETTE.push([v, v, v]);
+}
+
+// Leiab paletist kõige lähedama matemaatilise värvi
+function getClosestPaletteColor(r, g, b) {
+  let minDist = Infinity;
+  let closest = PALETTE[0];
+  for (let i = 0; i < PALETTE.length; i++) {
+    const p = PALETTE[i];
+    const dist = (r - p[0])**2 + (g - p[1])**2 + (b - p[2])**2;
+    if (dist < minDist) {
+      minDist = dist;
+      closest = p;
+    }
+  }
+  return closest;
+}
 
 function processRetroImage(img) {
   const canvas = document.createElement('canvas');
   const ctx = canvas.getContext('2d');
   
-  // Skaleeri pilt pisemaks, et see sobiks terminali andmemahuga
-  const maxW = 280;
+  // Väga madal resolutsioon mälu säästmiseks ja 90s pikslite efekti saavutamiseks
+  const maxW = 200; 
   let w = img.width;
   let h = img.height;
   if (w > maxW) {
@@ -655,36 +658,66 @@ function processRetroImage(img) {
   const imgData = ctx.getImageData(0, 0, w, h);
   const d = imgData.data;
 
-  // Floyd-Steinberg dither algoritm (Must/Roheline maatriks)
+  // EEL-TÖÖTLUS: Tõstame kontrasti ja dünaamikat enne ditherdamist, et vältida "valgeks plögaks" sulamist
+  const contrastFactor = 1.35; // Suurendab krõbedust ja hoiab detailid eraldi
+  for (let i = 0; i < d.length; i += 4) {
+    for (let j = 0; j < 3; j++) {
+      let val = d[i+j];
+      val = ((val / 255 - 0.5) * contrastFactor + 0.5) * 255;
+      d[i+j] = Math.min(255, Math.max(0, val));
+    }
+  }
+
+  // FLOYD-STEINBERG VÄRVILINE DITHERING ALGORITM
   for (let y = 0; y < h; y++) {
     for (let x = 0; x < w; x++) {
       const idx = (y * w + x) * 4;
-      const r = d[idx];
-      const g = d[idx+1];
-      const b = d[idx+2];
+      const oldR = d[idx];
+      const oldG = d[idx+1];
+      const oldB = d[idx+2];
+
+      // Leiame 256-värvi paletist vaste (Pildid EI ole enam üleni rohelised!)
+      const closest = getClosestPaletteColor(oldR, oldG, oldB);
       
-      // Heledustaseme arvutus
-      const gray = 0.299 * r + 0.587 * g + 0.114 * b;
-      const newValue = gray < 128 ? 0 : 255;
-      const err = gray - newValue;
+      d[idx]   = closest[0];
+      d[idx+1] = closest[1];
+      d[idx+2] = closest[2];
 
-      // Määrame uued värvid (0 = must, 255 = puhas terminali roheline)
-      d[idx] = 0;
-      d[idx+1] = newValue;
-      d[idx+2] = 0;
+      // Kvantimisvea arvutus iga värvikanali jaoks eraldi
+      const errR = oldR - closest[0];
+      const errG = oldG - closest[1];
+      const errB = oldB - closest[2];
 
-      // Levitleme kvantimisviga naaberpikslitele
-      if (x + 1 < w) d[idx + 4 + 1] += err * (7 / 16);
+      // Vea jaotamine naaberpikslitele
+      if (x + 1 < w) {
+        let nIdx = idx + 4;
+        d[nIdx]   = Math.min(255, Math.max(0, d[nIdx]   + errR * (7 / 16)));
+        d[nIdx+1] = Math.min(255, Math.max(0, d[nIdx+1] + errG * (7 / 16)));
+        d[nIdx+2] = Math.min(255, Math.max(0, d[nIdx+2] + errB * (7 / 16)));
+      }
       if (y + 1 < h) {
-        if (x > 0) d[idx + (w - 1) * 4 + 1] += err * (3 / 16);
-        d[idx + w * 4 + 1] += err * (5 / 16);
-        if (x + 1 < w) d[idx + (w + 1) * 4 + 1] += err * (1 / 16);
+        if (x > 0) {
+          let nIdx = idx + (w - 1) * 4;
+          d[nIdx]   = Math.min(255, Math.max(0, d[nIdx]   + errR * (3 / 16)));
+          d[nIdx+1] = Math.min(255, Math.max(0, d[nIdx+1] + errG * (3 / 16)));
+          d[nIdx+2] = Math.min(255, Math.max(0, d[nIdx+2] + errB * (3 / 16)));
+        }
+        let nIdx = idx + w * 4;
+        d[nIdx]   = Math.min(255, Math.max(0, d[nIdx]   + errR * (5 / 16)));
+        d[nIdx+1] = Math.min(255, Math.max(0, d[nIdx+1] + errG * (5 / 16)));
+        d[nIdx+2] = Math.min(255, Math.max(0, d[nIdx+2] + errB * (5 / 16)));
+        if (x + 1 < w) {
+          let nIdx = idx + (w + 1) * 4;
+          d[nIdx]   = Math.min(255, Math.max(0, d[nIdx]   + errR * (1 / 16)));
+          d[nIdx+1] = Math.min(255, Math.max(0, d[nIdx+1] + errG * (1 / 16)));
+          d[nIdx+2] = Math.min(255, Math.max(0, d[nIdx+2] + errB * (1 / 16)));
+        }
       }
     }
   }
   
   ctx.putImageData(imgData, 0, 0);
-  return canvas.toDataURL('image/png'); // Tagastab Base64 stringi
+  return canvas.toDataURL('image/png', 0.4); 
 }
 
 // ════════════════════════════════════════════════════
@@ -755,7 +788,6 @@ function renderMessage(msgData, msgId, isNew) {
     `<button class="act-btn-del" onclick="deleteMsg('${msgId}')">[x]</button>` +
     `</span>`;
 
-  // Koostame teksti ja ditherdatud pildi sisu
   let contentHtml = '';
   if (msgData.text) {
     contentHtml += `<span class="msg-text" id="txt-${msgId}">${escapeHtml(msgData.text)}</span>`;
@@ -965,11 +997,10 @@ function setTyping(isTyping) {
 }
 
 // ════════════════════════════════════════════════════
-//   SEND MESSAGE (UUENDATUD JA PARANDATUD PILDI TOUKSEKS)
+//   SEND MESSAGE 
 // ════════════════════════════════════════════════════
 
 async function sendMessage(text, base64Img = null) {
-  // PARANDUS: Lubab saatmist, kui tekst on tühi, aga dither-pilt on olemas!
   if ((!text.trim() && !base64Img) || !db) return;
   
   const loader = document.getElementById('loader');
@@ -1025,7 +1056,6 @@ function bindImageEvents() {
     reader.onload = function(event) {
       const img = new Image();
       img.onload = function() {
-        // Väike setTimeout lubab UI loaderil ja brauseril hingata, et mitte kinni kiiluda
         setTimeout(async () => {
           try {
             const ditheredBase64 = processRetroImage(img);
@@ -1038,7 +1068,7 @@ function bindImageEvents() {
       img.src = event.target.result;
     };
     reader.readAsDataURL(file);
-    e.target.value = ''; // Nullime väärtuse, et sama pilti saaks uuesti valida
+    e.target.value = ''; 
   });
 }
 
