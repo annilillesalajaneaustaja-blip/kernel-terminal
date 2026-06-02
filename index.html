@@ -208,11 +208,11 @@
   .msg-colon { color: var(--green-dim); }
   .msg-text { color: var(--green); }
   
-  /* Retrostiilis ditherdatud pildi kuva vestluses */
   .msg-dithered-img {
     display: block;
-    max-width: 400px; /* MUUDETUD: Lubab piltidel chatis suuremalt ilmuda, kui ruumi jagub */
-    width: 100%;
+    max-width: 400px;
+    max-height: 500px;
+    width: auto;
     height: auto;
     margin-top: 6px;
     border: 1px solid var(--green-dim);
@@ -226,7 +226,6 @@
     transform: scale(0.98);
   }
 
-  /* ── INTERAKTIIVNE PILDI SUURENDUSE KIHT (LIGHTBOX WITH ZOOM) ── */
   #image-lightbox {
     display: none;
     position: fixed;
