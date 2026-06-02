@@ -7,7 +7,7 @@
 <meta name="theme-color" content="#00FF00">
 <link rel="icon" type="image/png" href="./ikoon.png">
 <link rel="apple-touch-icon" href="./ikoon.png">
-<title>KERNEL_TERMINAL v4.2.1</title>
+<title>KERNEL_TERMINAL v4.3.0 (IMAGE_READY)</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
 
@@ -208,6 +208,18 @@
   .msg-colon { color: var(--green-dim); }
   .msg-text { color: var(--green); }
 
+  /* RETRO DITHERED IMAGE STYLE */
+  .msg-retro-img {
+    display: block;
+    margin: 8px 0;
+    max-width: 240px;
+    height: auto;
+    border: 1px solid var(--green-dim);
+    /* KRITILINE: See hoiab ära häguseks sulatamise (anti-aliasing) */
+    image-rendering: pixelated;
+    image-rendering: crisp-edges;
+  }
+
   .msg-status { font-size: 11px; margin-left: 6px; }
   .status-seen { color: #00AAFF; }
   .status-delivered { color: var(--green-dim); }
@@ -237,7 +249,6 @@
   .act-btn-save:hover, .act-btn-heart:hover, .act-btn-edit:hover, .act-btn-del:hover { opacity: 1; }
   .act-btn-save.saved { color: #00FFFF; opacity: 1; }
   
-  /* UUENDATUD: Suurem ja silmapaistvam süda */
   .act-btn-heart { 
     color: #FF6699; 
     font-size: 16px; 
@@ -293,6 +304,21 @@
   }
   #msg-input::placeholder { color: var(--green-dark); }
 
+  /* Retro nupu disain pildi valimiseks */
+  #img-select-btn {
+    background: transparent;
+    border: 1px dashed var(--green-dim);
+    color: var(--green-dim);
+    font-family: var(--font);
+    font-size: 12px;
+    padding: 2px 6px;
+    cursor: pointer;
+  }
+  #img-select-btn:hover {
+    color: var(--green);
+    border-color: var(--green);
+  }
+
   .cursor-blink {
     display: inline-block;
     width: 8px;
@@ -343,36 +369,7 @@
 <div id="firebase-config-notice">
 <pre>
 <span class="warn">⚠  FIREBASE EI OLE SEADISTATUD  ⚠</span>
-
-Leidsime, et firebase config on endiselt vaikeväärtustega.
-Palun järgi allpool olevaid juhiseid:
-
-1. Mine aadressile: <span style="color:#00FFFF">https://console.firebase.google.com</span>
-2. Loo uus projekt (nt "kernel-chat")
-3. Lisa veebirakendus (</> ikoon)
-4. Kopeeri oma firebaseConfig objekt
-5. Ava see index.html fail tekstiredaktoris
-6. Otsi üles sektsioon "FIREBASE KONFIGURATSIOON" ja asenda vaikeväärtused
-
-Pärast seadistamist lae leht uuesti.
-
-<span class="cmd">const firebaseConfig = {
-  apiKey: "SINU_API_KEY_SIIA",
-  authDomain: "SINU_PROJECT.firebaseapp.com",
-  databaseURL: "https://SINU_PROJECT-default-rtdb.firebasedatabase.app",
-  projectId: "SINU_PROJECT_ID",
-  storageBucket: "SINU_PROJECT.appspot.com",
-  messagingSenderId: "SINU_SENDER_ID",
-  appId: "SINU_APP_ID"
-};</span>
-
-<span class="warn">NB! Realtime Database peab olema lubatud Firebase konsoolis:</span>
-Build → Realtime Database → Create Database → Start in test mode
-
-<button onclick="document.getElementById('firebase-config-notice').style.display='none'"
-  style="margin-top:1.5rem;background:transparent;border:1px solid #00FF00;color:#00FF00;font-family:'Courier New',monospace;font-size:14px;padding:8px 20px;cursor:pointer;letter-spacing:2px;">
-[ SULGE ]
-</button>
+...
 </pre>
 </div>
 
@@ -380,10 +377,8 @@ Build → Realtime Database → Create Database → Start in test mode
   <div id="logo-container">
     <img src="./logo1.png" id="terminal-logo" alt="KERNEL LOGO" onerror="this.style.display='none';">
   </div>
-  <div style="color:#00AA00;font-family:'Courier New',monospace;font-size:12px;letter-spacing:3px;margin-bottom:1.5rem;text-align:center;">── SECURE COMMUNICATION TERMINAL v4.2.1 ──</div>
-
+  <div style="color:#00AA00;font-family:'Courier New',monospace;font-size:12px;letter-spacing:3px;margin-bottom:1.5rem;text-align:center;">── SECURE COMMUNICATION TERMINAL v4.3.0 ──</div>
   <div id="boot-lines"></div>
-
   <div id="login-box" style="display:none">
     <div class="title">▶ SISSELOGIMINE ◀</div>
     <div class="field">
@@ -397,7 +392,7 @@ Build → Realtime Database → Create Database → Start in test mode
 
 <div id="terminal">
   <div id="topbar">
-    <div class="sys-info">KERNEL_TERM 4.2.1 | ENCRYPTED | <span id="clock"></span></div>
+    <div class="sys-info">KERNEL_TERM 4.3.0 | ENCRYPTED | <span id="clock"></span></div>
     <div class="user-info">SESSION: <span id="current-user-label" style="color:var(--amber)"></span></div>
     <div class="sys-info" id="status-bar">● CONNECTING...</div>
   </div>
@@ -411,6 +406,8 @@ Build → Realtime Database → Create Database → Start in test mode
   <div id="loader">[ transmitting... ]</div>
   <div id="input-area">
     <span id="prompt-label">&gt;</span>
+    <button id="img-select-btn" onclick="document.getElementById('img-file-input').click()">[IMG]</button>
+    <input type="file" id="img-file-input" accept="image/*" style="display:none" />
     <input type="text" id="msg-input" placeholder="kirjuta sõnum... (ENTER saadab)" autocomplete="off" spellcheck="false" maxlength="500" />
     <span class="cursor-blink"></span>
   </div>
@@ -435,7 +432,6 @@ const firebaseConfig = {
   messagingSenderId: "70231400069",
   appId: "1:70231400069:web:8e62e67bd7c2efb28553ec"
 };
-// ════════════════════════════════════════════════════
 
 const USERS = {
   "vaheleitea": "Annilill",
@@ -463,9 +459,115 @@ const bootLines = [
   "Connecting to 32KK_SERVER ... OK",
   "Initializing secure channel ... OK",
   "Establishing Firebase connection ... OK",
+  "Graphics engine: 8-bit Dither module loaded ... OK",
   "",
   "SÜSTEEM ON VALMIS. Logige sisse."
 ];
+
+// ════════════════════════════════════════════════════
+//   90s HIGH-PERFORMANCE DITHERING ENGINE
+// ════════════════════════════════════════════════════
+
+// Loome standardse veebiturbelaadse 256-värvilise paleti (Web-Safe Palette 6x6x6 matrikkel + halltoonid)
+const PALETTE = [];
+for (let r = 0; r < 6; r++) {
+  for (let g = 0; g < 6; g++) {
+    for (let b = 0; b < 6; b++) {
+      PALETTE.push([Math.round(r * 51), Math.round(g * 51), Math.round(b * 51)]);
+    }
+  }
+}
+// Täidame ülejäänud kohad kuni 256 puhta halltooniga
+while (PALETTE.length < 256) {
+  let v = Math.round((PALETTE.length - 216) * (255 / 39));
+  PALETTE.push([v, v, v]);
+}
+
+// Leiab lähima vaste meie 256-värvilisest paletist
+function findClosestColor(r, g, b) {
+  let minDist = Infinity;
+  let closest = PALETTE[0];
+  for (let i = 0; i < PALETTE.length; i++) {
+    let p = PALETTE[i];
+    let d = (r - p[0])**2 + (g - p[1])**2 + (b - p[2])**2;
+    if (d < minDist) {
+      minDist = d;
+      closest = p;
+    }
+  }
+  return closest;
+}
+
+// Protsessib pildi: vähendab resolutsiooni ja rakendab Floyd-Steinberg dither-efekti
+function processRetroImage(imgElement) {
+  const maxDim = 160; // Max laius/kõrgus pikslitena. Ülimalt säästlik!
+  let w = imgElement.width;
+  let h = imgElement.height;
+  
+  if (w > h) {
+    if (w > maxDim) { h = Math.round(h * (maxDim / w)); w = maxDim; }
+  } else {
+    if (h > maxDim) { w = Math.round(w * (maxDim / h)); h = maxDim; }
+  }
+
+  const canvas = document.createElement('canvas');
+  canvas.width = w;
+  canvas.height = h;
+  const ctx = canvas.getContext('2d');
+  ctx.drawImage(imgElement, 0, 0, w, h);
+
+  const imgData = ctx.getImageData(0, 0, w, h);
+  const data = imgData.data;
+
+  // Floyd-Steinberg Dithering Algoritm
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      let idx = (y * w + x) * 4;
+      let oldR = data[idx];
+      let oldG = data[idx+1];
+      let oldB = data[idx+2];
+
+      let closest = findClosestColor(oldR, oldG, oldB);
+      data[idx]   = closest[0];
+      data[idx+1] = closest[1];
+      data[idx+2] = closest[2];
+
+      let errR = oldR - closest[0];
+      let errG = oldG - closest[1];
+      let errB = oldB - closest[2];
+
+      // Jaotame vea naaberpikslitele
+      if (x + 1 < w) {
+        let nIdx = idx + 4;
+        data[nIdx]   = Math.min(255, Math.max(0, data[nIdx]   + (errR * 7) / 16));
+        data[nIdx+1] = Math.min(255, Math.max(0, data[nIdx+1] + (errG * 7) / 16));
+        data[nIdx+2] = Math.min(255, Math.max(0, data[nIdx+2] + (errB * 7) / 16));
+      }
+      if (y + 1 < h) {
+        if (x > 0) {
+          let nIdx = ((y + 1) * w + (x - 1)) * 4;
+          data[nIdx]   = Math.min(255, Math.max(0, data[nIdx]   + (errR * 3) / 16));
+          data[nIdx+1] = Math.min(255, Math.max(0, data[nIdx+1] + (errG * 3) / 16));
+          data[nIdx+2] = Math.min(255, Math.max(0, data[nIdx+2] + (errB * 3) / 16));
+        }
+        let nIdx = ((y + 1) * w + x) * 4;
+        data[nIdx]   = Math.min(255, Math.max(0, data[nIdx]   + (errR * 5) / 16));
+        data[nIdx+1] = Math.min(255, Math.max(0, data[nIdx+1] + (errG * 5) / 16));
+        data[nIdx+2] = Math.min(255, Math.max(0, data[nIdx+2] + (errB * 5) / 16));
+        if (x + 1 < w) {
+          let nIdx = ((y + 1) * w + (x + 1)) * 4;
+          data[nIdx]   = Math.min(255, Math.max(0, data[nIdx]   + (errR * 1) / 16));
+          data[nIdx+1] = Math.min(255, Math.max(0, data[nIdx+1] + (errG * 1) / 16));
+          data[nIdx+2] = Math.min(255, Math.max(0, data[nIdx+2] + (errB * 1) / 16));
+        }
+      }
+    }
+  }
+
+  ctx.putImageData(imgData, 0, 0);
+  // Impordime tulemuse madala kvaliteediga PNG-na (andmete säästmiseks)
+  return canvas.toDataURL('image/png', 0.3);
+}
 
 // ════════════════════════════════════════════════════
 //   BOOT & LOGIN
@@ -629,7 +731,7 @@ function renderMessage(msgData, msgId, isNew) {
       fetch(`${url}/notify`, {
         method: 'POST', mode: 'cors',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ fromUser: currentUser, text: '✓✓ Sõnum loetud', toUser: msgData.user })
+        body: JSON.stringify({ fromUser: currentUser, text: msgData.image ? '📷 Saatis pildi' : '✓✓ Sõnum loetud', toUser: msgData.user })
       }).catch(() => {});
     }
   }
@@ -652,7 +754,6 @@ function renderMessage(msgData, msgId, isNew) {
   }
   if (msgData.saved) expiryHtml = `<span class="msg-expiry" style="color:#00AAFF;">[salvestatud]</span>`;
 
-  // MUUDATUS: edited märgistus ja tekst on siit täielikult eemaldatud.
   const saveClass = msgData.saved ? 'act-btn-save saved' : 'act-btn-save';
   const saveLabel = msgData.saved ? '[♦]' : '[♢]';
   const heartClass = msgData.hearted ? 'act-btn-heart hearted' : 'act-btn-heart';
@@ -661,11 +762,17 @@ function renderMessage(msgData, msgId, isNew) {
   const actionsHtml = `<span class="msg-actions">` +
     `<button class="${saveClass}" onclick="saveMsg('${msgId}',${!!msgData.saved})">${saveLabel}</button>` +
     `<button class="act-btn-heart ${heartClass}" onclick="heartMsg('${msgId}',${!!msgData.hearted})">${heartLabel}</button>` +
-    `<button class="act-btn-edit" onclick="editMsg('${msgId}',this)">[~]</button>` +
+    (msgData.image ? '' : `<button class="act-btn-edit" onclick="editMsg('${msgId}',this)">[~]</button>`) +
     `<button class="act-btn-del" onclick="deleteMsg('${msgId}')">[x]</button>` +
     `</span>`;
 
-  const displayText = `<span class="msg-text" id="txt-${msgId}">${escapeHtml(msgData.text)}</span>`;
+  // Kui tegemist on pildiga, kuvame spetsiaalse klassiga img-tagi
+  let displayText = '';
+  if (msgData.image) {
+    displayText = `<img src="${msgData.image}" class="msg-retro-img" id="txt-${msgId}" alt="retro-graphic" />`;
+  } else {
+    displayText = `<span class="msg-text" id="txt-${msgId}">${escapeHtml(msgData.text)}</span>`;
+  }
 
   const html =
     `<span class="msg-ts">[${formatTime(msgData.timestamp)}]</span> ` +
@@ -716,7 +823,7 @@ function scanAndRemindUnreadMessages(data) {
   const url = WORKER_URL.startsWith('http') ? WORKER_URL : `https://${WORKER_URL}`;
 
   Object.entries(data).forEach(([id, msg]) => {
-    if (msg.timestamp && msg.seen === false && msg.text !== '') {
+    if (msg.timestamp && msg.seen === false && (msg.text || msg.image)) {
       const timePassed = now - msg.timestamp;
 
       if (timePassed >= REMINDER_TRIGGER_MS) {
@@ -727,14 +834,14 @@ function scanAndRemindUnreadMessages(data) {
           localStorage.setItem(lastRemindedKey, now);
 
           const targetUser = msg.user === 'Annilill' ? 'Austaja' : 'Annilill';
+          const contentText = msg.image ? "[Pilt]" : msg.text;
           
-          // MUUDATUS: Teavitus tagasihoidliku väikese tähega "kordusteavitus:" eesliitega
           fetch(`${url}/notify`, {
             method: 'POST', mode: 'cors',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ 
               fromUser: msg.user, 
-              text: `kordusteavitus: ${msg.text}`, 
+              text: `kordusteavitus: ${contentText}`, 
               toUser: targetUser 
             })
           }).catch((err) => console.error('Meeldetuletuse saates tekkis viga:', err));
@@ -773,7 +880,7 @@ window.heartMsg = async function(msgId, isHearted) {
 
 window.editMsg = function(msgId, btn) {
   const txtEl = document.getElementById('txt-' + msgId);
-  if (!txtEl) return;
+  if (!txtEl || txtEl.tagName === 'IMG') return; // Pilte ei saa muuta tekstiks
   const current = txtEl.textContent;
   const input = document.createElement('input');
   input.type = 'text';
@@ -872,11 +979,11 @@ function setTyping(isTyping) {
 }
 
 // ════════════════════════════════════════════════════
-//   SEND MESSAGE
+//   SEND MESSAGE / IMAGE
 // ════════════════════════════════════════════════════
 
-async function sendMessage(text) {
-  if (!text.trim() || !db) return;
+async function sendMessage(text, base64Img = null) {
+  if (!text.trim() && !base64Img || !db) return;
   const loader = document.getElementById('loader');
   loader.style.display = 'block';
 
@@ -884,12 +991,20 @@ async function sendMessage(text) {
   if (typingTimeout) { clearTimeout(typingTimeout); typingTimeout = null; }
 
   try {
-    await push(msgsRef, {
+    const payload = {
       user: currentUser,
-      text: text.trim(),
       timestamp: serverTimestamp(),
       seen: false
-    });
+    };
+
+    if (base64Img) {
+      payload.image = base64Img;
+      payload.text = ''; // pildi puhul tekst puudub
+    } else {
+      payload.text = text.trim();
+    }
+
+    await push(msgsRef, payload);
 
     if (WORKER_URL && !WORKER_URL.includes('SINUNIMI')) {
       const url = WORKER_URL.startsWith('http') ? WORKER_URL : `https://${WORKER_URL}`;
@@ -897,7 +1012,7 @@ async function sendMessage(text) {
         method: 'POST',
         mode: 'cors',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ fromUser: currentUser, text: text.trim() })
+        body: JSON.stringify({ fromUser: currentUser, text: base64Img ? '📷 Saatis pildi' : text.trim() })
       }).catch(() => {});
     }
   } catch(e) {
@@ -906,6 +1021,26 @@ async function sendMessage(text) {
     loader.style.display = 'none';
   }
 }
+
+// Pildifaili sisestuse töötlemine
+document.getElementById('img-file-input').addEventListener('change', function(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+
+  const reader = new FileReader();
+  reader.onload = function(event) {
+    const img = new Image();
+    img.onload = async function() {
+      sysMsg('[ Tihendan ja ditherdan pilti... ]');
+      const ditheredBase64 = processRetroImage(img);
+      await sendMessage('', ditheredBase64);
+    };
+    img.src = event.target.result;
+  };
+  reader.readAsDataURL(file);
+  // Nullime väärtuse, et sama pilti saaks uuesti valida
+  e.target.value = '';
+});
 
 // ════════════════════════════════════════════════════
 //   INPUT EVENTS
@@ -962,7 +1097,6 @@ async function initFCM() {
     const token = await getToken(getMessaging(), { vapidKey: VAPID_KEY, serviceWorkerRegistration: swReg });
     if (!token) throw new Error('FCM token puudub');
 
-    // MUUDATUS: "Token lukustatud" teavituse kuvamine ja kontroll täielikult eemaldatud.
     const url = WORKER_URL.startsWith('http') ? WORKER_URL : `https://${WORKER_URL}`;
     const res = await fetch(`${url}/register`, {
       method: 'POST', mode: 'cors',
@@ -1001,7 +1135,7 @@ async function checkMissedMessages() {
       await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js");
     const snapshot = await get(fbQuery(msgsRef, orderByChild('timestamp'), startAfter(lastSeen)));
     if (!snapshot.exists()) return;
-    const missed = Object.values(snapshot.val()).filter(m => m.user !== currentUser && m.text !== '');
+    const missed = Object.values(snapshot.val()).filter(m => m.user !== currentUser && (m.text !== '' || m.image));
     if (!missed.length) return;
   } catch(e) { console.log('checkMissedMessages:', e.message); }
 }
