@@ -248,11 +248,11 @@
     justify-content: center;
     align-items: center;
   }
-
-  #lightbox-img {
-    max-width: 95%;
-    max-height: 95%;
-    object-fit: contain;
+#lightbox-img {
+    width: 20vw;          
+    height: 20vh;         
+    object-fit: contain; 
+    
     border: 1px solid var(--green);
     image-rendering: pixelated;
     image-rendering: crisp-edges;
@@ -800,12 +800,20 @@ function processRetroImage(img) {
   const canvas = document.createElement('canvas');
   const ctx = canvas.getContext('2d');
   
-  const maxW = 200; 
+  const maxDimension = 320; 
   let w = img.width;
   let h = img.height;
-  if (w > maxW) {
-    h = Math.floor((maxW / w) * h);
-    w = maxW;
+  
+  if (w > h) {
+    if (w > maxDimension) {
+      h = Math.floor((maxDimension / w) * h);
+      w = maxDimension;
+    }
+  } else {
+    if (h > maxDimension) {
+      w = Math.floor((maxDimension / h) * w);
+      h = maxDimension;
+    }
   }
   canvas.width = w;
   canvas.height = h;
