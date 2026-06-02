@@ -7,7 +7,7 @@
 <meta name="theme-color" content="#00FF00">
 <link rel="icon" type="image/png" href="./ikoon.png">
 <link rel="apple-touch-icon" href="./ikoon.png">
-<title>KERNEL_TERMINAL v4.2.2</title>
+<title>KERNEL_TERMINAL v4.2.3</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
 
@@ -216,10 +216,34 @@
     height: auto;
     margin-top: 6px;
     border: 1px solid var(--green-dim);
-    /* KRITILINE: Keelab igasuguse pehmendamise ja hoiab pildi absoluutselt nurgelise ja teravana */
     image-rendering: pixelated;
     image-rendering: crisp-edges;
     image-rendering: -moz-crisp-edges;
+    cursor: zoom-in; /* Näitab, et pilti saab suurendada */
+    transition: transform 0.1s ease;
+  }
+  .msg-dithered-img:active {
+    transform: scale(0.98);
+  }
+
+  /* ── MOBIILISÕBRALIK PILDI SUURENDUSE AKKEN (LIGHTBOX) ── */
+  #image-lightbox {
+    display: none;
+    position: fixed;
+    top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(0, 0, 0, 0.95);
+    z-index: 10000;
+    justify-content: center;
+    align-items: center;
+    cursor: zoom-out;
+  }
+  #lightbox-img {
+    max-width: 95%;
+    max-height: 95%;
+    object-fit: contain;
+    border: 1px solid var(--green);
+    image-rendering: pixelated;
+    image-rendering: crisp-edges;
   }
 
   .msg-status { font-size: 11px; margin-left: 6px; }
@@ -236,7 +260,7 @@
     padding-top: 6px;
   }
 
-  /* ── SÕNUMI AKSIOONID JA SÜDA ── */
+  /* ── SÕNUMI AKSIOONID ── */
   .act-btn-save, .act-btn-heart, .act-btn-edit, .act-btn-del {
     background: transparent;
     border: none;
@@ -264,13 +288,6 @@
   .msg-expiry { font-size: 10px; color: #444; margin-left: 4px; }
   .msg-expiry.soon { color: #884400; }
 
-  .sys-msg {
-    color: var(--green-dim);
-    font-size: 12px;
-    font-style: italic;
-    margin: 4px 0;
-  }
-
   /* ── TYPING INDICATOR ── */
   #typing-indicator {
     color: var(--green-dim);
@@ -281,7 +298,7 @@
     flex-shrink: 0;
   }
 
-  /* ── INPUT AREA & PAREMALE JOONDATUD NUPP ── */
+  /* ── INPUT AREA & NUPP PAREMAL POOL ── */
   #input-area {
     border-top: 1px solid var(--green-dim);
     padding: 8px 12px;
@@ -306,7 +323,6 @@
   }
   #msg-input::placeholder { color: var(--green-dark); }
 
-  /* Stiliseeritud pildi lisamise nupp paremal pool tekstikasti lõpus */
   .img-input-wrapper {
     display: flex;
     align-items: center;
@@ -372,6 +388,10 @@
 
 <div class="scanline"></div>
 
+<div id="image-lightbox" onclick="this.style.display='none'">
+  <img id="lightbox-img" src="" alt="Suurendatud vaade" />
+</div>
+
 <div id="firebase-config-notice">
 <pre>
 <span class="warn">⚠  FIREBASE EI OLE SEADISTATUD  ⚠</span>
@@ -383,7 +403,7 @@
   <div id="logo-container">
     <img src="./logo1.png" id="terminal-logo" alt="KERNEL LOGO" onerror="this.style.display='none';">
   </div>
-  <div style="color:#00AA00;font-family:'Courier New',monospace;font-size:12px;letter-spacing:3px;margin-bottom:1.5rem;text-align:center;">── SECURE COMMUNICATION TERMINAL v4.2.2 ──</div>
+  <div style="color:#00AA00;font-family:'Courier New',monospace;font-size:12px;letter-spacing:3px;margin-bottom:1.5rem;text-align:center;">── SECURE COMMUNICATION TERMINAL v4.2.3 ──</div>
 
   <div id="boot-lines"></div>
 
@@ -400,7 +420,7 @@
 
 <div id="terminal">
   <div id="topbar">
-    <div class="sys-info">KERNEL_TERM 4.2.2 | ENCRYPTED | <span id="clock"></span></div>
+    <div class="sys-info">KERNEL_TERM 4.2.3 | ENCRYPTED | <span id="clock"></span></div>
     <div class="user-info">SESSION: <span id="current-user-label" style="color:var(--amber)"></span></div>
     <div class="sys-info" id="status-bar">● CONNECTING...</div>
   </div>
@@ -475,6 +495,16 @@ const bootLines = [
   "",
   "SÜSTEEM ON VALMIS. Logige sisse."
 ];
+
+// Globaalne piltide suurendamise funktsioon (Töötab hästi telefonis katsudes)
+window.zoomImage = function(src) {
+  const lightbox = document.getElementById('image-lightbox');
+  const lightboxImg = document.getElementById('lightbox-img');
+  if(lightbox && lightboxImg) {
+    lightboxImg.src = src;
+    lightbox.style.display = 'flex';
+  }
+};
 
 // ════════════════════════════════════════════════════
 //   BOOT & LOGIN
@@ -597,20 +627,10 @@ function maybeInsertDaySeparator(area, ts) {
   area.appendChild(sep);
 }
 
-function sysMsg(text) {
-  const area = document.getElementById('messages-area');
-  const el = document.createElement('div');
-  el.className = 'sys-msg';
-  el.textContent = text;
-  area.appendChild(el);
-  area.scrollTop = area.scrollHeight;
-}
-
 // ════════════════════════════════════════════════════
-//   COLOR DITHER ENGINE (AUTENTNE 256 VÄRVI + KONTRAST)
+//   COLOR DITHER ENGINE
 // ════════════════════════════════════════════════════
 
-// Genereerime klassikalise 90ndate 8-bitise "Web-Safe" paleti (6x6x6 värvikuubik + 40 halltooni stabiilsuse jaoks)
 const PALETTE = [];
 for (let r = 0; r < 6; r++) {
   for (let g = 0; g < 6; g++) {
@@ -624,7 +644,6 @@ while (PALETTE.length < 256) {
   PALETTE.push([v, v, v]);
 }
 
-// Leiab paletist kõige lähedama matemaatilise värvi
 function getClosestPaletteColor(r, g, b) {
   let minDist = Infinity;
   let closest = PALETTE[0];
@@ -643,7 +662,6 @@ function processRetroImage(img) {
   const canvas = document.createElement('canvas');
   const ctx = canvas.getContext('2d');
   
-  // Väga madal resolutsioon mälu säästmiseks ja 90s pikslite efekti saavutamiseks
   const maxW = 200; 
   let w = img.width;
   let h = img.height;
@@ -658,8 +676,7 @@ function processRetroImage(img) {
   const imgData = ctx.getImageData(0, 0, w, h);
   const d = imgData.data;
 
-  // EEL-TÖÖTLUS: Tõstame kontrasti ja dünaamikat enne ditherdamist, et vältida "valgeks plögaks" sulamist
-  const contrastFactor = 1.35; // Suurendab krõbedust ja hoiab detailid eraldi
+  const contrastFactor = 1.35; 
   for (let i = 0; i < d.length; i += 4) {
     for (let j = 0; j < 3; j++) {
       let val = d[i+j];
@@ -668,7 +685,6 @@ function processRetroImage(img) {
     }
   }
 
-  // FLOYD-STEINBERG VÄRVILINE DITHERING ALGORITM
   for (let y = 0; y < h; y++) {
     for (let x = 0; x < w; x++) {
       const idx = (y * w + x) * 4;
@@ -676,19 +692,16 @@ function processRetroImage(img) {
       const oldG = d[idx+1];
       const oldB = d[idx+2];
 
-      // Leiame 256-värvi paletist vaste (Pildid EI ole enam üleni rohelised!)
       const closest = getClosestPaletteColor(oldR, oldG, oldB);
       
       d[idx]   = closest[0];
       d[idx+1] = closest[1];
       d[idx+2] = closest[2];
 
-      // Kvantimisvea arvutus iga värvikanali jaoks eraldi
       const errR = oldR - closest[0];
       const errG = oldG - closest[1];
       const errB = oldB - closest[2];
 
-      // Vea jaotamine naaberpikslitele
       if (x + 1 < w) {
         let nIdx = idx + 4;
         d[nIdx]   = Math.min(255, Math.max(0, d[nIdx]   + errR * (7 / 16)));
@@ -793,7 +806,8 @@ function renderMessage(msgData, msgId, isNew) {
     contentHtml += `<span class="msg-text" id="txt-${msgId}">${escapeHtml(msgData.text)}</span>`;
   }
   if (msgData.base64Img) {
-    contentHtml += `<img src="${msgData.base64Img}" class="msg-dithered-img" alt="Dithered Payload" />`;
+    // UUENDUS: Klikkimisel/puudutamisel avaneb pilt täisekraanil (zoomImage)
+    contentHtml += `<img src="${msgData.base64Img}" class="msg-dithered-img" alt="Dithered Payload" onclick="zoomImage(this.src)" />`;
   }
 
   const html =
@@ -866,7 +880,7 @@ function scanAndRemindUnreadMessages(data) {
               text: `kordusteavitus: ${notifText}`, 
               toUser: targetUser 
             })
-          }).catch((err) => console.error('Meeldetuletuse saates tekkis viga:', err));
+          }).catch(() => {});
         }
       }
     }
@@ -874,14 +888,14 @@ function scanAndRemindUnreadMessages(data) {
 }
 
 // ════════════════════════════════════════════════════
-//   MESSAGE ACTIONS
+//   MESSAGE ACTIONS (KÕIK TEKSTILISED TEATED EEMALDATUD)
 // ════════════════════════════════════════════════════
 
 window.saveMsg = async function(msgId, isSaved) {
   try {
     await update(ref(db, 'messages/' + msgId), { saved: !isSaved });
-    sysMsg(isSaved ? '[ Salvestus eemaldatud ]' : '[ ♦ Sõnum salvestatud — ei aegu ]');
-  } catch(e) { sysMsg('[ VIGA salvestamisel: ' + e.message + ' ]'); }
+    // PARANDUS: Sõnumi salvestamise süsteemne vilkumine eemaldatud. Toimub vaikselt.
+  } catch(e) { console.error(e); }
 };
 
 window.heartMsg = async function(msgId, isHearted) {
@@ -897,7 +911,7 @@ window.heartMsg = async function(msgId, isHearted) {
         body: JSON.stringify({ fromUser: currentUser, text: '♥ Sõnumile lisati süda', toUser })
       }).catch(() => {});
     }
-  } catch(e) { sysMsg('[ VIGA: ' + e.message + ' ]'); }
+  } catch(e) { console.error(e); }
 };
 
 window.editMsg = function(msgId, btn) {
@@ -917,8 +931,8 @@ window.editMsg = function(msgId, btn) {
     if (newText && newText !== current) {
       try {
         await update(ref(db, 'messages/' + msgId), { text: newText, edited: true });
-        sysMsg('[ Sõnum muudetud ]');
-      } catch(e) { sysMsg('[ VIGA muutmisel: ' + e.message + ' ]'); }
+        // PARANDUS: "[ Sõnum muudetud ]" teade täielikult eemaldatud. Sõnum muutub vaikselt.
+      } catch(e) { console.error(e); }
     }
   };
   input.addEventListener('keydown', async (e) => {
@@ -931,7 +945,7 @@ window.editMsg = function(msgId, btn) {
 window.deleteMsg = async function(msgId) {
   try {
     await remove(ref(db, 'messages/' + msgId));
-  } catch(e) { sysMsg('[ VIGA kustutamisel: ' + e.message + ' ]'); }
+  } catch(e) { console.error(e); }
 };
 
 // ════════════════════════════════════════════════════
@@ -954,7 +968,6 @@ function listenMessages() {
     }
 
     if (!data) { 
-      sysMsg('[ Tere tulemast. ]'); 
       historyLoaded = true; 
       return; 
     }
@@ -978,7 +991,6 @@ function listenMessages() {
   }, (error) => {
     statusBar.textContent = '✗ CONNECTION LOST';
     statusBar.style.color = '#FF3333';
-    sysMsg('[ VIGA: ' + error.message + ' ]');
   });
 }
 
@@ -1032,7 +1044,7 @@ async function sendMessage(text, base64Img = null) {
       }).catch(() => {});
     }
   } catch(e) {
-    sysMsg('[ SAATMINE EBAÕNNESTUS: ' + e.message + ' ]');
+    console.error(e);
   } finally {
     loader.style.display = 'none';
   }
@@ -1050,7 +1062,7 @@ function bindImageEvents() {
     const file = e.target.files[0];
     if (!file) return;
 
-    sysMsg('[ Tihendan ja ditherdan retro-pilti... ]');
+    // PARANDUS: Teade "[ Tihendan ja ditherdan... ]" eemaldatud.
 
     const reader = new FileReader();
     reader.onload = function(event) {
@@ -1061,7 +1073,7 @@ function bindImageEvents() {
             const ditheredBase64 = processRetroImage(img);
             await sendMessage('', ditheredBase64);
           } catch(err) {
-            sysMsg('[ RETRO-ENGINE VIGA töötlemisel: ' + err.message + ' ]');
+            console.error(err);
           }
         }, 50);
       };
@@ -1137,7 +1149,7 @@ async function initFCM() {
     updateNotifBanner();
   } catch(e) {
     swReady = false;
-    sysMsg('[ ✗ Push teavituste viga: ' + e.message + ' ]');
+    console.error(e);
   }
 }
 
@@ -1148,7 +1160,7 @@ async function requestNotifPermission() {
     if (result === 'granted') await initFCM();
     else updateNotifBanner();
   } catch(e) {
-    sysMsg('[ VIGA teavituste lubamisel: ' + e.message + ' ]');
+    console.error(e);
   }
 }
 
