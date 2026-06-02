@@ -7,7 +7,7 @@
 <meta name="theme-color" content="#00FF00">
 <link rel="icon" type="image/png" href="./ikoon.png">
 <link rel="apple-touch-icon" href="./ikoon.png">
-<title>KERNEL_TERMINAL v4.2.3</title>
+<title>KERNEL_TERMINAL v4.2.4</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
 
@@ -208,7 +208,7 @@
   .msg-colon { color: var(--green-dim); }
   .msg-text { color: var(--green); }
   
-  /* Retrostiilis ditherdatud pildi kuva */
+  /* Retrostiilis ditherdatud pildi kuva vestluses */
   .msg-dithered-img {
     display: block;
     max-width: 260px;
@@ -219,14 +219,14 @@
     image-rendering: pixelated;
     image-rendering: crisp-edges;
     image-rendering: -moz-crisp-edges;
-    cursor: zoom-in; /* Näitab, et pilti saab suurendada */
+    cursor: zoom-in;
     transition: transform 0.1s ease;
   }
   .msg-dithered-img:active {
     transform: scale(0.98);
   }
 
-  /* ── MOBIILISÕBRALIK PILDI SUURENDUSE AKKEN (LIGHTBOX) ── */
+  /* ── INTERAKTIIVNE PILDI SUURENDUSE KIHT (LIGHTBOX WITH ZOOM) ── */
   #image-lightbox {
     display: none;
     position: fixed;
@@ -235,16 +235,46 @@
     z-index: 10000;
     justify-content: center;
     align-items: center;
-    cursor: zoom-out;
+    overflow: hidden;
+    user-select: none;
+    touch-action: none; /* Keelab telefonis brauseri vaikimisi skrollimise suumi ajal */
   }
+  
+  #lightbox-container {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+  }
+
   #lightbox-img {
-    max-width: 95%;
-    max-height: 95%;
+    max-width: 85%;
+    max-height: 85%;
     object-fit: contain;
     border: 1px solid var(--green);
     image-rendering: pixelated;
     image-rendering: crisp-edges;
+    transform-origin: center center;
+    cursor: grab;
+    transition: transform 0.05s ease-out;
   }
+  #lightbox-img:active { cursor: grabbing; }
+
+  #lightbox-close {
+    position: absolute;
+    top: 15px; right: 20px;
+    color: var(--green);
+    background: transparent;
+    border: none;
+    font-family: var(--font);
+    font-size: 18px;
+    cursor: pointer;
+    z-index: 10001;
+    letter-spacing: 1px;
+  }
+  #lightbox-close:hover { color: #FFF; }
 
   .msg-status { font-size: 11px; margin-left: 6px; }
   .status-seen { color: #00AAFF; }
@@ -298,7 +328,7 @@
     flex-shrink: 0;
   }
 
-  /* ── INPUT AREA & NUPP PAREMAL POOL ── */
+  /* ── INPUT AREA ── */
   #input-area {
     border-top: 1px solid var(--green-dim);
     padding: 8px 12px;
@@ -388,8 +418,11 @@
 
 <div class="scanline"></div>
 
-<div id="image-lightbox" onclick="this.style.display='none'">
-  <img id="lightbox-img" src="" alt="Suurendatud vaade" />
+<div id="image-lightbox">
+  <div id="lightbox-container">
+    <button id="lightbox-close">[ SULE / X ]</button>
+    <img id="lightbox-img" src="" alt="Retro payload" />
+  </div>
 </div>
 
 <div id="firebase-config-notice">
@@ -403,7 +436,7 @@
   <div id="logo-container">
     <img src="./logo1.png" id="terminal-logo" alt="KERNEL LOGO" onerror="this.style.display='none';">
   </div>
-  <div style="color:#00AA00;font-family:'Courier New',monospace;font-size:12px;letter-spacing:3px;margin-bottom:1.5rem;text-align:center;">── SECURE COMMUNICATION TERMINAL v4.2.3 ──</div>
+  <div style="color:#00AA00;font-family:'Courier New',monospace;font-size:12px;letter-spacing:3px;margin-bottom:1.5rem;text-align:center;">── SECURE COMMUNICATION TERMINAL v4.2.4 ──</div>
 
   <div id="boot-lines"></div>
 
@@ -420,7 +453,7 @@
 
 <div id="terminal">
   <div id="topbar">
-    <div class="sys-info">KERNEL_TERM 4.2.3 | ENCRYPTED | <span id="clock"></span></div>
+    <div class="sys-info">KERNEL_TERM 4.2.4 | ENCRYPTED | <span id="clock"></span></div>
     <div class="user-info">SESSION: <span id="current-user-label" style="color:var(--amber)"></span></div>
     <div class="sys-info" id="status-bar">● CONNECTING...</div>
   </div>
@@ -496,15 +529,120 @@ const bootLines = [
   "SÜSTEEM ON VALMIS. Logige sisse."
 ];
 
-// Globaalne piltide suurendamise funktsioon (Töötab hästi telefonis katsudes)
+// ════════════════════════════════════════════════════
+//   ZOOM & DRAG MOOTOR LIGHTBOXYLE (ARVUTI + MOBIIL)
+// ════════════════════════════════════════════════════
+let zoomScale = 1;
+let zoomPanX = 0;
+let zoomPanY = 0;
+let isDraggingZoom = false;
+let startDragX = 0, startDragY = 0;
+let initialPinchDist = 0;
+let initialPinchScale = 1;
+
 window.zoomImage = function(src) {
   const lightbox = document.getElementById('image-lightbox');
   const lightboxImg = document.getElementById('lightbox-img');
-  if(lightbox && lightboxImg) {
+  if (lightbox && lightboxImg) {
+    zoomScale = 1; zoomPanX = 0; zoomPanY = 0;
     lightboxImg.src = src;
+    updateLightboxTransform();
     lightbox.style.display = 'flex';
   }
 };
+
+function updateLightboxTransform() {
+  const lightboxImg = document.getElementById('lightbox-img');
+  if (lightboxImg) {
+    lightboxImg.style.transform = `translate(${zoomPanX}px, ${zoomPanY}px) scale(${zoomScale})`;
+  }
+}
+
+// Kinnitame sündmused kohe pärast laadimist sujuva interaktsiooni jaoks
+document.addEventListener('DOMContentLoaded', () => {
+  const lightbox = document.getElementById('image-lightbox');
+  const container = document.getElementById('lightbox-container');
+  const img = document.getElementById('lightbox-img');
+  const closeBtn = document.getElementById('lightbox-close');
+
+  const closeLightbox = () => { lightbox.style.display = 'none'; };
+  closeBtn.addEventListener('click', closeLightbox);
+  
+  // Sulgeb akna klikkides taustale, aga mitte pildile
+  container.addEventListener('click', (e) => {
+    if (e.target === container) closeLightbox();
+  });
+
+  // 1. ARVUTI: Hiirerullikuga sisse-välja suumimine
+  container.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    const zoomIntensity = 0.12;
+    if (e.deltaY < 0) {
+      zoomScale = Math.min(zoomScale + zoomIntensity, 12); // Max 12x suurendus
+    } else {
+      zoomScale = Math.max(zoomScale - zoomIntensity, 0.6); // Min 0.6x
+    }
+    updateLightboxTransform();
+  }, { passive: false });
+
+  // 2. ARVUTI: Lohistamine hiirega (Drag)
+  img.addEventListener('mousedown', (e) => {
+    isDraggingZoom = true;
+    startDragX = e.clientX - zoomPanX;
+    startDragY = e.clientY - zoomPanY;
+    e.preventDefault();
+  });
+
+  window.addEventListener('mousemove', (e) => {
+    if (!isDraggingZoom) return;
+    zoomPanX = e.clientX - startDragX;
+    zoomPanY = e.clientY - startDragY;
+    updateLightboxTransform();
+  });
+
+  window.addEventListener('mouseup', () => { isDraggingZoom = false; });
+
+  // 3. MOBIIL: Näppudega katsumine (Pinch-to-zoom & Swipe pan)
+  container.addEventListener('touchstart', (e) => {
+    if (e.touches.length === 1) {
+      // Ühe näpuga lohistamine
+      isDraggingZoom = true;
+      startDragX = e.touches[0].clientX - zoomPanX;
+      startDragY = e.touches[0].clientY - zoomPanY;
+    } else if (e.touches.length === 2) {
+      // Kahe näpuga suumimise alustamine
+      isDraggingZoom = false;
+      initialPinchDist = Math.hypot(
+        e.touches[0].clientX - e.touches[1].clientX,
+        e.touches[0].clientY - e.touches[1].clientY
+      );
+      initialPinchScale = zoomScale;
+    }
+  }, { passive: true });
+
+  container.addEventListener('touchmove', (e) => {
+    if (e.touches.length === 1 && isDraggingZoom) {
+      zoomPanX = e.touches[0].clientX - startDragX;
+      zoomPanY = e.touches[0].clientY - startDragY;
+      updateLightboxTransform();
+    } else if (e.touches.length === 2) {
+      const currentDist = Math.hypot(
+        e.touches[0].clientX - e.touches[1].clientX,
+        e.touches[0].clientY - e.touches[1].clientY
+      );
+      if (initialPinchDist > 0) {
+        const factor = currentDist / initialPinchDist;
+        zoomScale = Math.min(Math.max(initialPinchScale * factor, 0.6), 12);
+        updateLightboxTransform();
+      }
+    }
+  }, { passive: true });
+
+  container.addEventListener('touchend', () => {
+    isDraggingZoom = false;
+    initialPinchDist = 0;
+  });
+});
 
 // ════════════════════════════════════════════════════
 //   BOOT & LOGIN
@@ -806,7 +944,6 @@ function renderMessage(msgData, msgId, isNew) {
     contentHtml += `<span class="msg-text" id="txt-${msgId}">${escapeHtml(msgData.text)}</span>`;
   }
   if (msgData.base64Img) {
-    // UUENDUS: Klikkimisel/puudutamisel avaneb pilt täisekraanil (zoomImage)
     contentHtml += `<img src="${msgData.base64Img}" class="msg-dithered-img" alt="Dithered Payload" onclick="zoomImage(this.src)" />`;
   }
 
@@ -888,13 +1025,12 @@ function scanAndRemindUnreadMessages(data) {
 }
 
 // ════════════════════════════════════════════════════
-//   MESSAGE ACTIONS (KÕIK TEKSTILISED TEATED EEMALDATUD)
+//   MESSAGE ACTIONS
 // ════════════════════════════════════════════════════
 
 window.saveMsg = async function(msgId, isSaved) {
   try {
     await update(ref(db, 'messages/' + msgId), { saved: !isSaved });
-    // PARANDUS: Sõnumi salvestamise süsteemne vilkumine eemaldatud. Toimub vaikselt.
   } catch(e) { console.error(e); }
 };
 
@@ -931,7 +1067,6 @@ window.editMsg = function(msgId, btn) {
     if (newText && newText !== current) {
       try {
         await update(ref(db, 'messages/' + msgId), { text: newText, edited: true });
-        // PARANDUS: "[ Sõnum muudetud ]" teade täielikult eemaldatud. Sõnum muutub vaikselt.
       } catch(e) { console.error(e); }
     }
   };
@@ -1035,7 +1170,7 @@ async function sendMessage(text, base64Img = null) {
 
     if (WORKER_URL && !WORKER_URL.includes('SINUNIMI')) {
       const url = WORKER_URL.startsWith('http') ? WORKER_URL : `https://${WORKER_URL}`;
-      const pushText = base64Img ? '📷 Saatis retro-pildi...' : text.trim();
+      const pushText = base64Img ? '📷 Saatis sulle pildi...' : text.trim();
       fetch(`${url}/notify`, {
         method: 'POST',
         mode: 'cors',
@@ -1061,8 +1196,6 @@ function bindImageEvents() {
   fileInput.addEventListener('change', function(e) {
     const file = e.target.files[0];
     if (!file) return;
-
-    // PARANDUS: Teade "[ Tihendan ja ditherdan... ]" eemaldatud.
 
     const reader = new FileReader();
     reader.onload = function(event) {
