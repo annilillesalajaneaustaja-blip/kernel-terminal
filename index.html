@@ -211,7 +211,7 @@
   /* Retrostiilis ditherdatud pildi kuva vestluses */
   .msg-dithered-img {
     display: block;
-    max-width: 260px;
+    max-width: 400px; /* MUUDETUD: Lubab piltidel chatis suuremalt ilmuda, kui ruumi jagub */
     width: 100%;
     height: auto;
     margin-top: 6px;
@@ -237,7 +237,7 @@
     align-items: center;
     overflow: hidden;
     user-select: none;
-    touch-action: none; /* Keelab telefonis brauseri vaikimisi skrollimise suumi ajal */
+    touch-action: none;
   }
   
   #lightbox-container {
@@ -248,9 +248,12 @@
     justify-content: center;
     align-items: center;
   }
-#lightbox-img {
-    width: 60vw;          
-    height: 60vh;         
+
+  #lightbox-img {
+    max-width: 90vw;          /* MUUDETUD: Määrab maksimaalse laiuse */
+    max-height: 90vh;         /* MUUDETUD: Määrab maksimaalse kõrguse */
+    width: auto;              /* MUUDETUD: Tagab, et raam liibub täpselt pildi servade vastu */
+    height: auto;             /* MUUDETUD: Tagab, et raam liibub täpselt pildi servade vastu */
     object-fit: contain; 
     
     border: 1px solid var(--green);
@@ -316,7 +319,8 @@
   .act-btn-del { color: var(--red); }
 
   .msg-expiry { font-size: 10px; color: #444; margin-left: 4px; }
-  .msg-expiry.soon { color: #884400; }
+  .msg-expiry.soon { color: #884400; margin-left: 4px; }
+  if (msgData.saved) expiryHtml = `<span class="msg-expiry" style="color:#00AAFF;">[salvestatud]</span>`;
 
   /* ── TYPING INDICATOR ── */
   #typing-indicator {
@@ -558,7 +562,6 @@ function updateLightboxTransform() {
   }
 }
 
-// Kinnitame sündmused kohe pärast laadimist sujuva interaktsiooni jaoks
 document.addEventListener('DOMContentLoaded', () => {
   const lightbox = document.getElementById('image-lightbox');
   const container = document.getElementById('lightbox-container');
@@ -568,24 +571,21 @@ document.addEventListener('DOMContentLoaded', () => {
   const closeLightbox = () => { lightbox.style.display = 'none'; };
   closeBtn.addEventListener('click', closeLightbox);
   
-  // Sulgeb akna klikkides taustale, aga mitte pildile
   container.addEventListener('click', (e) => {
     if (e.target === container) closeLightbox();
   });
 
-  // 1. ARVUTI: Hiirerullikuga sisse-välja suumimine
   container.addEventListener('wheel', (e) => {
     e.preventDefault();
     const zoomIntensity = 0.12;
     if (e.deltaY < 0) {
-      zoomScale = Math.min(zoomScale + zoomIntensity, 12); // Max 12x suurendus
+      zoomScale = Math.min(zoomScale + zoomIntensity, 12);
     } else {
-      zoomScale = Math.max(zoomScale - zoomIntensity, 0.6); // Min 0.6x
+      zoomScale = Math.max(zoomScale - zoomIntensity, 0.6);
     }
     updateLightboxTransform();
   }, { passive: false });
 
-  // 2. ARVUTI: Lohistamine hiirega (Drag)
   img.addEventListener('mousedown', (e) => {
     isDraggingZoom = true;
     startDragX = e.clientX - zoomPanX;
@@ -602,15 +602,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
   window.addEventListener('mouseup', () => { isDraggingZoom = false; });
 
-  // 3. MOBIIL: Näppudega katsumine (Pinch-to-zoom & Swipe pan)
   container.addEventListener('touchstart', (e) => {
     if (e.touches.length === 1) {
-      // Ühe näpuga lohistamine
       isDraggingZoom = true;
       startDragX = e.touches[0].clientX - zoomPanX;
-      startDragY = e.touches[0].clientY - zoomPanY;
+      startDragY = e.touches[0].clientY - startDragY;
     } else if (e.touches.length === 2) {
-      // Kahe näpuga suumimise alustamine
       isDraggingZoom = false;
       initialPinchDist = Math.hypot(
         e.touches[0].clientX - e.touches[1].clientX,
